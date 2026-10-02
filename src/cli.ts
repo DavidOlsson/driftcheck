@@ -8,6 +8,11 @@ import { formatSummary, verifySpecFile } from "./commands/verifyCommand.js";
 import { runCompare } from "./commands/compareCommand.js";
 import { ClaudeAgentRunner } from "./extract/ClaudeAgentRunner.js";
 import { AnthropicLlmClient } from "./llm/LlmClient.js";
+import { ClaudeCliAgentRunner } from "./extract/ClaudeCliAgentRunner.js";
+import { ClaudeCliLlmClient } from "./llm/ClaudeCliLlmClient.js";
+import { NodeCommandRunner } from "./io/process.js";
+import { BACKENDS, selectBackend, type BackendChoice } from "./backend.js";
+import { costLabel } from "./report/markdown.js";
 import { createRequire } from "node:module";
 
 // Read at runtime so it works both from src/ (tests) and dist/ (published package)
@@ -51,15 +56,19 @@ program
 
 program
   .command("compare <feature>")
-  .description("describe a feature on both platforms with Claude and report the differences (calls the API)")
+  .description("describe a feature on both platforms with Claude and report the differences")
   .option("-m, --model <model>", "Claude model to use instead of the configured one")
-  .action(async (featureId: string, options: { model?: string }) => {
-    requireApiKey();
+  .option("-b, --backend <backend>", `how to reach Claude: ${BACKENDS.join(", ")} (default: from config, else auto)`)
+  .action(async (featureId: string, options: { model?: string; backend?: string }) => {
     const loaded = await validateProject(projectRoot());
     const config = options.model ? { ...loaded, model: options.model } : loaded;
+    const commands = new NodeCommandRunner();
+    const backend = await selectBackend(parseBackendChoice(options.backend ?? config.backend), process.env, commands);
     const result = await runCompare(config, featureId, {
-      runner: new ClaudeAgentRunner(`driftcheck/${version}`),
-      llm: new AnthropicLlmClient(),
+      backend,
+      ...(backend === "api"
+        ? { runner: new ClaudeAgentRunner(`driftcheck/${version}`), llm: new AnthropicLlmClient() }
+        : { runner: new ClaudeCliAgentRunner(commands), llm: new ClaudeCliLlmClient(commands) }),
       now: () => new Date(),
       log: (message) => console.log(message),
     });
@@ -69,13 +78,15 @@ program
       .map(([category, count]) => `${count} ${category}`)
       .join(", ");
     console.log(`Findings: ${counts || "none"}`);
-    console.log(`Report: ${path.relative(process.cwd(), result.reportFile)} · estimated cost $${result.usage.costUsd.toFixed(2)}`);
+    console.log(`Report: ${path.relative(process.cwd(), result.reportFile)}`);
+    console.log(costLabel(backend, result.usage.costUsd).replace(/\*\*/g, ""));
   });
 
-function requireApiKey(): void {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new ConfigError("ANTHROPIC_API_KEY is not set. Create a key at https://console.anthropic.com and export it in your shell.");
+function parseBackendChoice(value: string): BackendChoice {
+  if (!(BACKENDS as readonly string[]).includes(value)) {
+    throw new ConfigError(`Unknown backend "${value}". Use one of: ${BACKENDS.join(", ")}`);
   }
+  return value as BackendChoice;
 }
 
 try {

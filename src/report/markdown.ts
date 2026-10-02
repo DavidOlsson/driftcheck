@@ -1,3 +1,4 @@
+import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
 import type { Usage } from "../extract/AgentRunner.js";
 import type { Finding, FindingCategory, PlatformSide } from "../model/finding.js";
 import type { Platform } from "../model/spec.js";
@@ -9,6 +10,8 @@ export interface CompareReportInput {
   ios: VerifiedFeatureSpec;
   findings: Finding[];
   model: string;
+  /** Subscription runs are not billed per token, so the cost is shown as an API-equivalent estimate. */
+  backend: Backend;
   usage: Usage;
   /** ISO timestamp, passed in so rendering stays deterministic in tests. */
   generatedAt: string;
@@ -38,8 +41,14 @@ function verificationLine(platform: Platform, spec: VerifiedFeatureSpec): string
   return `- **${platform === "android" ? "Android" : "iOS"}:** ${s.verifiedItems} of ${s.items} items verified against the source`;
 }
 
+export function costLabel(backend: Backend, costUsd: number): string {
+  return backend === "claude-code"
+    ? `**API-equivalent cost:** about $${costUsd.toFixed(2)} (counts toward your Claude subscription usage, not billed per token)`
+    : `**Estimated cost:** $${costUsd.toFixed(2)}`;
+}
+
 export function renderCompareReport(input: CompareReportInput): string {
-  const { featureName, android, ios, findings, model, usage, generatedAt } = input;
+  const { featureName, android, ios, findings, model, backend, usage, generatedAt } = input;
   const count = (c: FindingCategory) => findings.filter((f) => f.category === c).length;
 
   const out: string[] = [];
@@ -73,7 +82,7 @@ export function renderCompareReport(input: CompareReportInput): string {
   const notFound = [...android.notFound.map((n) => `Android: ${n}`), ...ios.notFound.map((n) => `iOS: ${n}`)];
   if (notFound.length > 0) out.push(`- **Looked for but not found:** ${notFound.map(cell).join("; ")}`);
   out.push(
-    `- **Model:** \`${model}\` · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · **Estimated cost:** $${usage.costUsd.toFixed(2)}`,
+    `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${costLabel(backend, usage.costUsd)}`,
     `- **Generated:** ${generatedAt} by driftcheck`,
     "",
   );

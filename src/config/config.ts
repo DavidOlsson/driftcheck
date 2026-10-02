@@ -2,6 +2,7 @@ import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import type { Platform } from "../model/spec.js";
+import { BACKENDS, type BackendChoice } from "../model/backend.js";
 
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 export const DEFAULT_MAX_TURNS = 40;
@@ -27,6 +28,8 @@ const RawConfig = z.object({
   platforms: z.object({ android: PlatformConfig, ios: PlatformConfig }),
   features: z.array(FeatureConfig).default([]),
   model: z.string().min(1).default(DEFAULT_MODEL),
+  /** How Claude is reached: "auto" uses ANTHROPIC_API_KEY if set, otherwise the Claude Code CLI. */
+  backend: z.enum(BACKENDS).default("auto"),
   maxTurns: z.number().int().positive().default(DEFAULT_MAX_TURNS),
   maxBudgetUsd: z.number().positive().default(DEFAULT_MAX_BUDGET_USD),
 });
@@ -40,6 +43,7 @@ export interface Config {
   platforms: Record<Platform, string>;
   features: FeatureConfig[];
   model: string;
+  backend: BackendChoice;
   maxTurns: number;
   maxBudgetUsd: number;
 }
@@ -78,6 +82,7 @@ export function parseConfig(yamlText: string, projectRoot: string): Config {
     },
     features: c.features,
     model: c.model,
+    backend: c.backend,
     maxTurns: c.maxTurns,
     maxBudgetUsd: c.maxBudgetUsd,
   };
@@ -108,6 +113,10 @@ features:
   - id: search
     name: Search
     hints: []
+
+# How Claude is reached: auto (API key if ANTHROPIC_API_KEY is set, otherwise the
+# Claude Code CLI with your Claude subscription), api or claude-code.
+# backend: auto
 
 # Optional overrides:
 # model: ${DEFAULT_MODEL}
