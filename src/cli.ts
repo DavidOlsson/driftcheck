@@ -11,7 +11,10 @@ import { AnthropicLlmClient } from "./llm/LlmClient.js";
 import { ClaudeCliAgentRunner } from "./extract/ClaudeCliAgentRunner.js";
 import { ClaudeCliLlmClient } from "./llm/ClaudeCliLlmClient.js";
 import { NodeCommandRunner } from "./io/process.js";
-import { BACKENDS, selectBackend, type BackendChoice } from "./backend.js";
+import { BACKENDS, selectBackend, type Backend, type BackendChoice } from "./backend.js";
+import { runOverview } from "./commands/overviewCommand.js";
+import { groupOf, type MatrixGroup } from "./inventory/presence.js";
+import type { Usage } from "./extract/AgentRunner.js";
 import { usageLabel } from "./report/markdown.js";
 import { createRequire } from "node:module";
 
@@ -54,35 +57,67 @@ program
     console.log(formatSummary(result.spec, result.summary));
   });
 
-program
-  .command("compare <feature>")
-  .description("describe a feature on both platforms with Claude and report the differences")
-  .option("-m, --model <model>", "Claude model to use instead of the configured one")
-  .option("-b, --backend <backend>", `how to reach Claude: ${BACKENDS.join(", ")} (default: from config, else auto)`)
-  .action(async (featureId: string, options: { model?: string; backend?: string }) => {
-    const loaded = await validateProject(projectRoot());
-    const config = options.model ? { ...loaded, model: options.model } : loaded;
-    const commands = new NodeCommandRunner();
-    const backend = await selectBackend(parseBackendChoice(options.backend ?? config.backend), process.env, commands);
-    const result = await runCompare(config, featureId, {
-      backend,
-      ...(backend === "api"
-        ? { runner: new ClaudeAgentRunner(`driftcheck/${version}`), llm: new AnthropicLlmClient() }
-        : { runner: new ClaudeCliAgentRunner(commands), llm: new ClaudeCliLlmClient(commands) }),
-      now: () => new Date(),
-      log: (message) => console.log(message),
-    });
-    const counts = Object.entries(
-      result.findings.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.category]: (acc[f.category] ?? 0) + 1 }), {}),
-    )
-      .map(([category, count]) => `${count} ${category}`)
-      .join(", ");
-    console.log(`Findings: ${counts || "none"}`);
-    console.log(`Report: ${path.relative(process.cwd(), result.reportFile)}`);
-    // Local time in the terminal; reports use UTC so they read the same for everyone
-    const localTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    console.log(usageLabel(backend, result.usage, localTime).replace(/\*\*/g, ""));
-  });
+interface ClaudeOptions {
+  model?: string;
+  backend?: string;
+}
+
+/** Shared by every command that calls Claude: config, backend choice and the matching clients. */
+async function setupClaude(options: ClaudeOptions) {
+  const loaded = await validateProject(projectRoot());
+  const config = options.model ? { ...loaded, model: options.model } : loaded;
+  const commands = new NodeCommandRunner();
+  const backend = await selectBackend(parseBackendChoice(options.backend ?? config.backend), process.env, commands);
+  const deps = {
+    backend,
+    ...(backend === "api"
+      ? { runner: new ClaudeAgentRunner(`driftcheck/${version}`), llm: new AnthropicLlmClient() }
+      : { runner: new ClaudeCliAgentRunner(commands), llm: new ClaudeCliLlmClient(commands) }),
+    now: () => new Date(),
+    log: (message: string) => console.log(message),
+  };
+  return { config, deps };
+}
+
+function printReportAndUsage(reportFile: string, deps: { backend: Backend }, usage: Usage): void {
+  console.log(`Report: ${path.relative(process.cwd(), reportFile)}`);
+  // Local time in the terminal; reports use UTC so they read the same for everyone
+  const localTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  console.log(usageLabel(deps.backend, usage, localTime).replace(/\*\*/g, ""));
+}
+
+const withClaudeOptions = (command: Command) =>
+  command
+    .option("-m, --model <model>", "Claude model to use instead of the configured one")
+    .option("-b, --backend <backend>", `how to reach Claude: ${BACKENDS.join(", ")} (default: from config, else auto)`);
+
+withClaudeOptions(
+  program.command("overview").description("map the features of both apps with Claude and report a feature matrix"),
+).action(async (options: ClaudeOptions) => {
+  const { config, deps } = await setupClaude(options);
+  const result = await runOverview(config, deps);
+  // Same grouping as the report, i.e. after the presence check
+  const count = (group: MatrixGroup) => result.matches.filter((m) => groupOf(m) === group).length;
+  console.log(
+    `Features: ${count("both")} on both platforms, ${count("different_structure")} structured differently, ` +
+      `${count("android_only")} Android only, ${count("ios_only")} iOS only, ${count("uncertain")} uncertain`,
+  );
+  printReportAndUsage(result.reportFile, deps, result.usage);
+});
+
+withClaudeOptions(
+  program.command("compare <feature>").description("describe a feature on both platforms with Claude and report the differences"),
+).action(async (featureId: string, options: ClaudeOptions) => {
+  const { config, deps } = await setupClaude(options);
+  const result = await runCompare(config, featureId, deps);
+  const counts = Object.entries(
+    result.findings.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.category]: (acc[f.category] ?? 0) + 1 }), {}),
+  )
+    .map(([category, count]) => `${count} ${category}`)
+    .join(", ");
+  console.log(`Findings: ${counts || "none"}`);
+  printReportAndUsage(result.reportFile, deps, result.usage);
+});
 
 function parseBackendChoice(value: string): BackendChoice {
   if (!(BACKENDS as readonly string[]).includes(value)) {

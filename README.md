@@ -1,6 +1,6 @@
 # driftcheck
 
-> 🚧 **Work in progress.** `compare` works end to end; `overview` and `check` are being built.
+> 🚧 **Work in progress.** `overview` and `compare` work end to end; `check` is being built.
 
 Keeps native Android and iOS apps in sync. driftcheck uses Claude to read how a feature is implemented on each platform, compares the two, and flags behavioral differences (timeouts, limits, validation rules, error handling, API usage) before users or testers notice them.
 
@@ -22,9 +22,12 @@ npm run build
 node dist/cli.js init                 # creates .driftcheck/config.yml
 node dist/cli.js validate             # checks the config and the platform paths
 node dist/cli.js verify spec.json     # checks a feature description's evidence against the source
+node dist/cli.js overview             # maps the features of both apps into a feature matrix
 node dist/cli.js compare search       # describes "search" on both platforms and reports the differences
 node dist/cli.js compare search --backend api   # force the API key instead of Claude Code
 ```
+
+`overview` lets one read-only agent per platform list the app's user-facing features with verified entry points, matches them across platforms, and then searches the other platform for every feature that was listed on one side only (two separate inventories rarely use the same granularity). It writes `.driftcheck/reports/overview.md`: a feature matrix (both platforms / structured differently / Android only / iOS only / uncertain), notes on visible differences, and suggested features for a deep comparison as a ready-to-paste `features:` block for the config. The inventory is stored in `.driftcheck/inventory.json`.
 
 `compare` runs one read-only agent per platform, verifies every claim against the source, compares the two descriptions and writes:
 
