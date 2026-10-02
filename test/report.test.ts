@@ -51,6 +51,12 @@ describe("renderCompareReport", () => {
     expect(report([finding()] as Finding[])).toContain("via Anthropic API (ANTHROPIC_API_KEY)");
   });
 
+  it("warns about sections a platform did not inspect", () => {
+    const text = report([finding()] as Finding[]);
+    expect(text).toContain("⚠️ **Android sections not inspected:** presentation");
+    expect(text).not.toContain("iOS sections not inspected");
+  });
+
   it("keeps table cells intact when text contains pipes or newlines", () => {
     const text = report([finding({ title: "a | b\nc" })] as Finding[]);
     expect(text).toContain("a \\| b c");

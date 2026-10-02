@@ -50,6 +50,7 @@ describe("verifySpec", () => {
     platform: "android",
     summary: "Search",
     notFound: [],
+    coverage: [],
     items: [
       {
         key: "input_handling.debounce_ms",

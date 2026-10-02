@@ -8,6 +8,10 @@ export function verifiedSpec(platform: Platform, debounce: string, file: string)
     platform,
     summary: `Search on ${platform}`,
     notFound: platform === "ios" ? ["voice search"] : [],
+    coverage: [
+      { section: "input_handling", status: "covered", filesRead: [file] },
+      { section: "presentation", status: platform === "android" ? "not_inspected" : "covered", filesRead: [] },
+    ],
     items: [
       {
         key: "input_handling.debounce_ms",

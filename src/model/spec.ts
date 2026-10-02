@@ -44,6 +44,16 @@ export const SpecItem = z.object({
 });
 export type SpecItem = z.infer<typeof SpecItem>;
 
+export const SectionCoverage = z.object({
+  section: Section,
+  /** "not_inspected" makes gaps visible instead of looking like the platform has nothing there. */
+  status: z.enum(["covered", "not_found", "not_inspected"]),
+  /** Files read for this section, relative to the platform root. */
+  filesRead: z.array(z.string()).default([]),
+  note: z.string().optional(),
+});
+export type SectionCoverage = z.infer<typeof SectionCoverage>;
+
 export const FeatureSpec = z.object({
   feature: z.string().min(1),
   platform: Platform,
@@ -51,5 +61,7 @@ export const FeatureSpec = z.object({
   items: z.array(SpecItem),
   /** Things the agent looked for but did not find, so absence is explicit rather than silent. */
   notFound: z.array(z.string()).default([]),
+  /** One entry per section, so a report can show which parts of the feature were actually examined. */
+  coverage: z.array(SectionCoverage).default([]),
 });
 export type FeatureSpec = z.infer<typeof FeatureSpec>;

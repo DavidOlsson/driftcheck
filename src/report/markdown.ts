@@ -112,6 +112,12 @@ export function renderCompareReport(input: CompareReportInput): string {
 
   out.push(`## How this was checked`, "");
   out.push(verificationLine("android", android), verificationLine("ios", ios));
+  for (const [platform, spec] of [["Android", android], ["iOS", ios]] as const) {
+    const gaps = spec.coverage.filter((c) => c.status === "not_inspected").map((c) => c.section);
+    if (spec.coverage.length > 0 && gaps.length > 0) {
+      out.push(`- ⚠️ **${platform} sections not inspected:** ${gaps.join(", ")}. Differences there may be missing from this report.`);
+    }
+  }
   const notFound = [...android.notFound.map((n) => `Android: ${n}`), ...ios.notFound.map((n) => `iOS: ${n}`)];
   if (notFound.length > 0) out.push(`- **Looked for but not found:** ${notFound.map(cell).join("; ")}`);
   out.push(

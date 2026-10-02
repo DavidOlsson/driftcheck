@@ -1,0 +1,58 @@
+# Known differences in the "Search" feature between the open source Wikipedia apps,
+# found by a manual, verified comparison:
+#   Android: wikimedia/apps-android-wikipedia @ 6ed4aa2 (2026-10-01)
+#   iOS:     wikimedia/wikipedia-ios          @ 2d6cd1d (2026-09-30)
+#
+# A finding matches an expected difference when its text (title, both platform summaries
+# and question) contains at least one term from EVERY group in `match` (case-insensitive).
+# Keyword matching is deliberately simple; check the "unmatched findings" list by hand.
+feature: search
+expected:
+  - id: fulltext-threshold
+    description: Full-text search is added below 10 results on Android, below 12 on iOS
+    match: [["full-text", "fulltext", "full text", "fallback", "threshold"], ["12"], ["10"]]
+  - id: result-count-paging
+    description: Android pages results without limit, iOS shows at most 48 without paging
+    match: [["paging", "pages", "infinite", "one batch", "single request", "48", "24"]]
+  - id: debounce
+    description: Debounce 200 ms on Android, 100 ms on iOS
+    match: [["debounce"], ["200"], ["100"]]
+  - id: local-matches
+    description: Android mixes in matches from open tabs, history and reading lists
+    match: [["tabs"], ["reading list"]]
+  - id: other-language-counts
+    description: With no results, Android shows result counts in the user's other languages
+    match: [["language"], ["count"]]
+  - id: recent-save-trigger
+    description: Android also saves a recent search when closing with X; iOS only on result tap
+    match: [["recent"], ["save", "saving", "saved"]]
+  - id: recent-dedup-scope
+    description: iOS de-duplicates recent searches across wikis; Android by exact text
+    match: [["recent"], ["dedup", "duplicate"]]
+  - id: ios-no-retry
+    description: iOS has no retry button or loading indicator on errors
+    match: [["retry"]]
+  - id: suggestion-unused
+    description: iOS fetches a "did you mean" suggestion with every search but never shows it
+    match: [["suggestion", "did you mean", "srinfo"], ["never", "not shown", "not displayed", "unused", "not used", "ignored"]]
+  - id: android-page-duplicates
+    description: Android only de-duplicates within a page, so results can repeat across pages
+    match: [["duplicate", "dedup"], ["page"]]
+  - id: ios-no-trim
+    description: iOS sends the query untrimmed; Android trims it
+    match: [["trim"]]
+  - id: voice-search
+    description: Voice search exists only on Android
+    match: [["voice search", "speech", "recognizer"]]
+  - id: thumbnail-size
+    description: Thumbnails are requested at 330 px on Android and 120 px on iOS
+    match: [["thumbnail", "thumb", "pithumbsize"], ["330", "120"]]
+  - id: row-lines
+    description: Result rows show 2 lines on Android and 1 line on iOS
+    match: [["1 line", "2 lines", "one line", "two lines", "max lines", "maxlines", "line limit", "single line"]]
+  - id: long-press-menu
+    description: Different long-press menus (iOS adds background tab, map, share)
+    match: [["long-press", "long press", "context menu"]]
+  - id: idle-screen
+    description: With an empty query iOS shows reading history, Android shows recent searches
+    match: [["read history", "reading history", "history"], ["empty", "idle", "inactive"]]
