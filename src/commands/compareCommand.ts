@@ -1,3 +1,4 @@
+import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
 import { compareSpecs } from "../compare/compare.js";
 import { findFeature, type Config } from "../config/config.js";
 import { addUsage, AgentError, NO_USAGE, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
@@ -10,6 +11,7 @@ import { storePaths, writeJson, writeText } from "../store/store.js";
 import { verifySpec, type VerifiedFeatureSpec } from "../verify/verify.js";
 
 export interface CompareDeps {
+  backend: Backend;
   runner: AgentRunner;
   llm: LlmClient;
   now: () => Date;
@@ -35,7 +37,7 @@ export function maxCostUsd(config: Config): number {
 export async function runCompare(config: Config, featureId: string, deps: CompareDeps): Promise<CompareResult> {
   const feature = findFeature(config, featureId);
   const paths = storePaths(config.projectRoot, feature.id);
-  deps.log(`Comparing "${feature.name}" with ${config.model} (at most about $${maxCostUsd(config).toFixed(2)})…`);
+  deps.log(`Comparing "${feature.name}" with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]} (at most about $${maxCostUsd(config).toFixed(2)})…`);
 
   // Both platforms in parallel; if one fails, the other's cost is still reported
   const results = await Promise.allSettled(
@@ -76,6 +78,7 @@ export async function runCompare(config: Config, featureId: string, deps: Compar
       ios,
       findings: compared.findings,
       model: config.model,
+      backend: deps.backend,
       usage,
       generatedAt: deps.now().toISOString(),
     }),

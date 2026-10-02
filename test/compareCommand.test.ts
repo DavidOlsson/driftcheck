@@ -41,6 +41,7 @@ const agentOutput = (request: AgentRequest) => {
 };
 
 const deps = (runner: FakeAgentRunner, logs: string[] = []) => ({
+  backend: "api" as const,
   runner,
   llm: new FakeLlmClient(() => ({ findings: [finding({ android: { summary: "200 ms", evidence: [{ file: "Search.kt", line: 2 }] }, ios: { summary: "100 ms", evidence: [{ file: "Search.swift", line: 2 }] } })] })),
   now: () => new Date("2026-10-02T10:00:00Z"),
