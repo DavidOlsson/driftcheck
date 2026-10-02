@@ -37,7 +37,7 @@ expected:
     match: [["suggestion", "did you mean", "srinfo"], ["never", "not shown", "not displayed", "unused", "not used", "ignored"]]
   - id: android-page-duplicates
     description: Android only de-duplicates within a page, so results can repeat across pages
-    match: [["duplicate", "dedup"], ["page"]]
+    match: [["duplicate", "dedup"], ["across pages", "between pages", "later page", "next page", "other pages"]]
   - id: ios-no-trim
     description: iOS sends the query untrimmed; Android trims it
     match: [["trim"]]
