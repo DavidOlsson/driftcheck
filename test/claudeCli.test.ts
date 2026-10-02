@@ -64,6 +64,17 @@ describe("parseCliOutput", () => {
     });
   });
 
+  it("counts cached input tokens, which the CLI reports separately", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      structured_output: {},
+      total_cost_usd: 0.18,
+      usage: { input_tokens: 40, output_tokens: 900, cache_creation_input_tokens: 12000, cache_read_input_tokens: 80000 },
+    });
+    expect(parseCliOutput(stdout, "", 0, "/repo").usage).toEqual({ inputTokens: 92040, outputTokens: 900, costUsd: 0.18 });
+  });
+
   it("explains non-JSON output, such as a CLI that is not logged in", () => {
     expect(() => parseCliOutput("", "Invalid API key · Please run /login", 1, "/repo")).toThrowError(
       /did not return JSON \(exit code 1\): Invalid API key · Please run \/login/,

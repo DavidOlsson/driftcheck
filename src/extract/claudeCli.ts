@@ -62,7 +62,15 @@ const CliResult = z.object({
   result: z.string().optional(),
   structured_output: z.unknown().optional(),
   total_cost_usd: z.number().optional(),
-  usage: z.object({ input_tokens: z.number().optional(), output_tokens: z.number().optional() }).partial().optional(),
+  usage: z
+    .object({
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cache_creation_input_tokens: z.number(),
+      cache_read_input_tokens: z.number(),
+    })
+    .partial()
+    .optional(),
 });
 
 const ERROR_HINTS: Record<string, string> = {
@@ -90,8 +98,9 @@ export function parseCliOutput(stdout: string, stderr: string, exitCode: number,
   const parsed = CliResult.safeParse(json);
   if (!parsed.success) throw new AgentError(`Claude Code in ${cwd} returned an unexpected result format`);
   const r = parsed.data;
+  // input_tokens excludes cached prompt tokens, which are most of an agent run's input
   const usage: Usage = {
-    inputTokens: r.usage?.input_tokens ?? 0,
+    inputTokens: (r.usage?.input_tokens ?? 0) + (r.usage?.cache_creation_input_tokens ?? 0) + (r.usage?.cache_read_input_tokens ?? 0),
     outputTokens: r.usage?.output_tokens ?? 0,
     costUsd: r.total_cost_usd ?? 0,
   };
