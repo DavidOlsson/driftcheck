@@ -70,6 +70,19 @@ describe("parseCliOutput", () => {
     );
   });
 
+  it("tells the user how to log in when Claude Code is not authenticated", () => {
+    const expired = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: true,
+      result: "Failed to authenticate. API Error: 401 OAuth access token has expired.",
+    });
+    expect(() => parseCliOutput(expired, "", 1, "/repo")).toThrowError(/Run "claude" in a terminal and log in \(\/login\)/);
+    expect(() => parseCliOutput("", "Please run /login", 1, "/repo")).toThrowError(/log in \(\/login\)/);
+    const other = JSON.stringify({ type: "result", subtype: "success", is_error: true, result: "rate limited" });
+    expect(() => parseCliOutput(other, "", 1, "/repo")).not.toThrowError(/log in/);
+  });
+
   it("maps budget errors and keeps the cost", () => {
     const stdout = JSON.stringify({ type: "result", subtype: "error_max_budget_usd", total_cost_usd: 1.6, usage: {} });
     try {

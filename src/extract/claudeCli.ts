@@ -72,13 +72,20 @@ const ERROR_HINTS: Record<string, string> = {
   error_during_execution: "an error occurred while it was running",
 };
 
+/** Login problems are the most common first-run failure, so they get a concrete next step. */
+export function withLoginHint(message: string): string {
+  return /401|authenticat|log ?in|oauth/i.test(message)
+    ? `${message} Run "claude" in a terminal and log in (/login), then try again.`
+    : message;
+}
+
 export function parseCliOutput(stdout: string, stderr: string, exitCode: number, cwd: string): { output: unknown; usage: Usage } {
   let json: unknown;
   try {
     json = JSON.parse(stdout);
   } catch {
     const detail = (stderr || stdout).trim().split("\n").slice(-3).join(" ").slice(0, 300);
-    throw new AgentError(`Claude Code in ${cwd} did not return JSON (exit code ${exitCode})${detail ? `: ${detail}` : ""}`);
+    throw new AgentError(withLoginHint(`Claude Code in ${cwd} did not return JSON (exit code ${exitCode})${detail ? `: ${detail}` : ""}`));
   }
   const parsed = CliResult.safeParse(json);
   if (!parsed.success) throw new AgentError(`Claude Code in ${cwd} returned an unexpected result format`);
@@ -91,7 +98,7 @@ export function parseCliOutput(stdout: string, stderr: string, exitCode: number,
   if (r.subtype !== "success") {
     throw new AgentError(`Claude Code in ${cwd} stopped early: ${ERROR_HINTS[r.subtype] ?? r.subtype}`, usage);
   }
-  if (r.is_error) throw new AgentError(`Claude Code in ${cwd} failed: ${r.result ?? "unknown error"}`, usage);
+  if (r.is_error) throw new AgentError(withLoginHint(`Claude Code in ${cwd} failed: ${r.result ?? "unknown error"}`), usage);
   if (r.structured_output === undefined) throw new AgentError(`Claude Code in ${cwd} finished without structured output`, usage);
   return { output: r.structured_output, usage };
 }
