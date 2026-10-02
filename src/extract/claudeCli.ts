@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AgentError, type Usage } from "./AgentRunner.js";
+import { AgentError, type PlanUsage, type PlanWindow, type Usage } from "./AgentRunner.js";
 import type { CommandRunner } from "../io/process.js";
 
 /**
@@ -28,7 +28,9 @@ export interface CliRunOptions {
 export function buildCliArgs(options: CliRunOptions): string[] {
   const args = [
     "-p",
-    "--output-format", "json",
+    // stream-json (which requires --verbose with -p) also carries the plan rate-limit events
+    "--output-format", "stream-json",
+    "--verbose",
     "--json-schema", JSON.stringify(options.jsonSchema),
     "--system-prompt", options.systemPrompt,
     "--model", options.model,
@@ -87,13 +89,69 @@ export function withLoginHint(message: string): string {
     : message;
 }
 
+const RateLimitEvent = z.object({
+  type: z.literal("rate_limit_event"),
+  rate_limit_info: z
+    .object({
+      status: z.enum(["allowed", "allowed_warning", "rejected"]),
+      rateLimitType: z.string(),
+      utilization: z.number(),
+      surpassedThreshold: z.number(),
+      resetsAt: z.number(),
+    })
+    .partial(),
+});
+
+/** Claude Code reports utilization either as a fraction or as a percentage; normalize to 0–100. */
+function toPercent(utilization: number | undefined): number | undefined {
+  if (utilization === undefined) return undefined;
+  return Math.round(utilization <= 1 ? utilization * 100 : utilization);
+}
+
+/** resetsAt is a Unix timestamp; accept seconds or milliseconds. */
+function toIso(resetsAt: number | undefined): string | undefined {
+  if (resetsAt === undefined) return undefined;
+  return new Date(resetsAt < 1e12 ? resetsAt * 1000 : resetsAt).toISOString();
+}
+
+/** Keeps the last reported state of the 5-hour and weekly windows from a stream of events. */
+export function planUsageFromEvents(events: unknown[]): PlanUsage | undefined {
+  const plan: PlanUsage = {};
+  for (const event of events) {
+    const parsed = RateLimitEvent.safeParse(event);
+    if (!parsed.success) continue;
+    const info = parsed.data.rate_limit_info;
+    const window: PlanWindow = {
+      ...(info.status !== undefined && { status: info.status }),
+      ...(info.utilization !== undefined && { usedPercent: toPercent(info.utilization) }),
+      ...(info.surpassedThreshold !== undefined && { thresholdPercent: toPercent(info.surpassedThreshold) }),
+      ...(info.resetsAt !== undefined && { resetsAt: toIso(info.resetsAt) }),
+    };
+    // Later events may omit fields an earlier one had (e.g. the percentage), so update instead of replace
+    if (info.rateLimitType === "five_hour") plan.fiveHour = { ...plan.fiveHour, ...window };
+    if (info.rateLimitType === "seven_day") plan.weekly = { ...plan.weekly, ...window };
+  }
+  return plan.fiveHour || plan.weekly ? plan : undefined;
+}
+
+/** Parses newline-delimited JSON, ignoring lines that are not JSON (e.g. stray log output). */
+function parseLines(stdout: string): unknown[] {
+  return stdout.split("\n").flatMap((line) => {
+    if (!line.trim()) return [];
+    try {
+      return [JSON.parse(line) as unknown];
+    } catch {
+      return [];
+    }
+  });
+}
+
 export function parseCliOutput(stdout: string, stderr: string, exitCode: number, cwd: string): { output: unknown; usage: Usage } {
-  let json: unknown;
-  try {
-    json = JSON.parse(stdout);
-  } catch {
+  const events = parseLines(stdout);
+  const json = events.findLast((e) => typeof e === "object" && e !== null && (e as { type?: unknown }).type === "result");
+  if (json === undefined) {
     const detail = (stderr || stdout).trim().split("\n").slice(-3).join(" ").slice(0, 300);
-    throw new AgentError(withLoginHint(`Claude Code in ${cwd} did not return JSON (exit code ${exitCode})${detail ? `: ${detail}` : ""}`));
+    throw new AgentError(withLoginHint(`Claude Code in ${cwd} did not return a result (exit code ${exitCode})${detail ? `: ${detail}` : ""}`));
   }
   const parsed = CliResult.safeParse(json);
   if (!parsed.success) throw new AgentError(`Claude Code in ${cwd} returned an unexpected result format`);
@@ -104,6 +162,8 @@ export function parseCliOutput(stdout: string, stderr: string, exitCode: number,
     outputTokens: r.usage?.output_tokens ?? 0,
     costUsd: r.total_cost_usd ?? 0,
   };
+  const plan = planUsageFromEvents(events);
+  if (plan) usage.plan = plan;
   if (r.subtype !== "success") {
     throw new AgentError(`Claude Code in ${cwd} stopped early: ${ERROR_HINTS[r.subtype] ?? r.subtype}`, usage);
   }

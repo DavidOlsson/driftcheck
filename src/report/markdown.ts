@@ -1,5 +1,5 @@
 import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
-import type { Usage } from "../extract/AgentRunner.js";
+import type { PlanWindow, Usage } from "../extract/AgentRunner.js";
 import type { Finding, FindingCategory, PlatformSide } from "../model/finding.js";
 import type { Platform } from "../model/spec.js";
 import { summarizeVerification, type VerifiedFeatureSpec } from "../verify/verify.js";
@@ -41,10 +41,43 @@ function verificationLine(platform: Platform, spec: VerifiedFeatureSpec): string
   return `- **${platform === "android" ? "Android" : "iOS"}:** ${s.verifiedItems} of ${s.items} items verified against the source`;
 }
 
-export function costLabel(backend: Backend, costUsd: number): string {
-  return backend === "claude-code"
-    ? `**API-equivalent cost:** about $${costUsd.toFixed(2)} (counts toward your Claude subscription usage, not billed per token)`
-    : `**Estimated cost:** $${costUsd.toFixed(2)}`;
+/** Reports must not depend on the machine's time zone, so reset times are shown in UTC. */
+export function formatUtc(iso: string): string {
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+function windowState(window: PlanWindow): string {
+  const used = window.usedPercent !== undefined ? `${window.usedPercent}% used` : null;
+  switch (window.status) {
+    case "rejected":
+      return "limit reached";
+    case "allowed_warning": {
+      const over = window.thresholdPercent !== undefined ? `over ${window.thresholdPercent}% used` : used;
+      return `approaching limit${over ? ` (${over})` : ""}`;
+    }
+    default:
+      return used ?? "OK";
+  }
+}
+
+function formatWindow(name: string, window: PlanWindow | undefined, formatTime: (iso: string) => string): string | null {
+  if (!window) return null;
+  return `${name} ${windowState(window)}${window.resetsAt ? `, resets ${formatTime(window.resetsAt)}` : ""}`;
+}
+
+/**
+ * What a run "cost": dollars for API keys; for subscriptions the dollar estimate is noise, so the
+ * plan's 5-hour and weekly windows are shown instead, when Claude Code reported them.
+ */
+export function usageLabel(backend: Backend, usage: Usage, formatTime: (iso: string) => string = formatUtc): string {
+  if (backend === "api") return `**Estimated cost:** $${usage.costUsd.toFixed(2)}`;
+  const windows = [
+    formatWindow("5-hour window", usage.plan?.fiveHour, formatTime),
+    formatWindow("weekly limit", usage.plan?.weekly, formatTime),
+  ].filter((w): w is string => w !== null);
+  return windows.length > 0
+    ? `**Plan usage:** ${windows.join(" · ")}`
+    : "**Plan usage:** not reported by Claude Code for this run";
 }
 
 export function renderCompareReport(input: CompareReportInput): string {
@@ -82,7 +115,7 @@ export function renderCompareReport(input: CompareReportInput): string {
   const notFound = [...android.notFound.map((n) => `Android: ${n}`), ...ios.notFound.map((n) => `iOS: ${n}`)];
   if (notFound.length > 0) out.push(`- **Looked for but not found:** ${notFound.map(cell).join("; ")}`);
   out.push(
-    `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${costLabel(backend, usage.costUsd)}`,
+    `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${usageLabel(backend, usage)}`,
     `- **Generated:** ${generatedAt} by driftcheck`,
     "",
   );

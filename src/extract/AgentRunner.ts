@@ -24,14 +24,52 @@ export interface AgentResult {
   usage: Usage;
 }
 
+/** One claude.ai plan rate-limit window, as last reported by Claude Code. */
+export interface PlanWindow {
+  /** "allowed" is within the limit, "allowed_warning" is close to it, "rejected" means it is used up. */
+  status?: "allowed" | "allowed_warning" | "rejected";
+  /** Percentage of the window used, 0–100. Claude Code only sends it sometimes, e.g. near a limit. */
+  usedPercent?: number;
+  /** The warning threshold that was passed, 0–100, when status is "allowed_warning". */
+  thresholdPercent?: number;
+  /** ISO 8601 timestamp when the window resets. */
+  resetsAt?: string;
+}
+
+/** Subscription limits; only reported by the Claude Code backend, and only when Claude Code sends them. */
+export interface PlanUsage {
+  fiveHour?: PlanWindow;
+  weekly?: PlanWindow;
+}
+
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  plan?: PlanUsage;
+}
+
+const STATUS_ORDER = [undefined, "allowed", "allowed_warning", "rejected"];
+
+/** Usage within a window only grows, so when runs overlap the most severe and highest reading is the most recent. */
+function latestWindow(a?: PlanWindow, b?: PlanWindow): PlanWindow | undefined {
+  if (!a || !b) return a ?? b;
+  const severity = STATUS_ORDER.indexOf(b.status) - STATUS_ORDER.indexOf(a.status);
+  if (severity !== 0) return severity > 0 ? b : a;
+  return (b.usedPercent ?? -1) >= (a.usedPercent ?? -1) ? b : a;
+}
+
+function mergePlan(a?: PlanUsage, b?: PlanUsage): PlanUsage | undefined {
+  if (!a || !b) return a ?? b;
+  const fiveHour = latestWindow(a.fiveHour, b.fiveHour);
+  const weekly = latestWindow(a.weekly, b.weekly);
+  return { ...(fiveHour && { fiveHour }), ...(weekly && { weekly }) };
 }
 
 export function addUsage(a: Usage, b: Usage): Usage {
+  const plan = mergePlan(a.plan, b.plan);
   return {
+    ...(plan && { plan }),
     inputTokens: a.inputTokens + b.inputTokens,
     outputTokens: a.outputTokens + b.outputTokens,
     costUsd: a.costUsd + b.costUsd,

@@ -12,7 +12,7 @@ import { ClaudeCliAgentRunner } from "./extract/ClaudeCliAgentRunner.js";
 import { ClaudeCliLlmClient } from "./llm/ClaudeCliLlmClient.js";
 import { NodeCommandRunner } from "./io/process.js";
 import { BACKENDS, selectBackend, type BackendChoice } from "./backend.js";
-import { costLabel } from "./report/markdown.js";
+import { usageLabel } from "./report/markdown.js";
 import { createRequire } from "node:module";
 
 // Read at runtime so it works both from src/ (tests) and dist/ (published package)
@@ -79,7 +79,9 @@ program
       .join(", ");
     console.log(`Findings: ${counts || "none"}`);
     console.log(`Report: ${path.relative(process.cwd(), result.reportFile)}`);
-    console.log(costLabel(backend, result.usage.costUsd).replace(/\*\*/g, ""));
+    // Local time in the terminal; reports use UTC so they read the same for everyone
+    const localTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    console.log(usageLabel(backend, result.usage, localTime).replace(/\*\*/g, ""));
   });
 
 function parseBackendChoice(value: string): BackendChoice {
