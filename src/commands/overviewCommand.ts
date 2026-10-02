@@ -1,19 +1,64 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { CONFIG_DIR, type Config } from "../config/config.js";
+import { z } from "zod";
+import { CONFIG_DIR, ConfigError, type Config } from "../config/config.js";
 import { addUsage, AgentError, NO_USAGE, type Usage } from "../extract/AgentRunner.js";
 import { FsSourceReader } from "../io/fileReader.js";
 import { extractInventory, matchInventories, verifyInventory, type VerifiedInventory } from "../inventory/inventory.js";
 import { applyChecks, candidatesFor, runPresenceCheck } from "../inventory/presence.js";
-import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
-import type { FeatureMatch } from "../model/inventory.js";
-import { renderOverviewReport } from "../report/overviewMarkdown.js";
+import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
+import { FeatureMatch } from "../model/inventory.js";
+import { renderOverviewHtml } from "../report/overviewHtml.js";
+import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
 import type { CompareDeps } from "./compareCommand.js";
 
 export const overviewPaths = (projectRoot: string) => ({
   inventory: path.join(projectRoot, CONFIG_DIR, "inventory.json"),
   report: path.join(projectRoot, CONFIG_DIR, "reports", "overview.md"),
+  html: path.join(projectRoot, CONFIG_DIR, "reports", "overview.html"),
 });
+
+/** Writes both report formats from the same data, so they never disagree. */
+export async function writeOverviewReports(projectRoot: string, input: OverviewReportInput): Promise<{ report: string; html: string }> {
+  const paths = overviewPaths(projectRoot);
+  await writeText(paths.report, renderOverviewReport(input));
+  await writeText(paths.html, renderOverviewHtml(input));
+  return { report: paths.report, html: paths.html };
+}
+
+/** Rebuilds the reports from the stored inventory without calling Claude, e.g. after a report format change. */
+export async function rerenderOverview(projectRoot: string): Promise<{ report: string; html: string }> {
+  const file = overviewPaths(projectRoot).inventory;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    throw new ConfigError(`No readable ${path.relative(projectRoot, file)}. Run "driftcheck overview" first.`);
+  }
+  const stored = raw as Partial<StoredInventory>;
+  if (!stored.android || !stored.ios || !Array.isArray(stored.matches)) {
+    throw new ConfigError(`${path.relative(projectRoot, file)} does not look like a driftcheck inventory. Run "driftcheck overview" again.`);
+  }
+  const matches = z.array(FeatureMatch).parse(stored.matches);
+  return writeOverviewReports(projectRoot, {
+    android: stored.android,
+    ios: stored.ios,
+    matches,
+    // Inventories written before run details were stored fall back to neutral values
+    model: stored.meta?.model ?? "unknown",
+    backend: stored.meta?.backend ?? "claude-code",
+    usage: stored.meta?.usage ?? NO_USAGE,
+    generatedAt: stored.meta?.generatedAt ?? "unknown",
+  });
+}
+
+interface StoredInventory {
+  android: VerifiedInventory;
+  ios: VerifiedInventory;
+  matches: FeatureMatch[];
+  meta?: { model: string; backend: Backend; usage: Usage; generatedAt: string };
+}
 
 interface Inventoried {
   verified: VerifiedInventory;
@@ -23,6 +68,7 @@ interface Inventoried {
 export interface OverviewResult {
   matches: FeatureMatch[];
   reportFile: string;
+  htmlFile: string;
   usage: Usage;
 }
 
@@ -86,19 +132,11 @@ export async function runOverview(config: Config, deps: CompareDeps): Promise<Ov
     }
   }
 
-  // Stored so `check` can map changed files to features later
-  await writeJson(paths.inventory, { android, ios, matches });
-  await writeText(
-    paths.report,
-    renderOverviewReport({
-      android,
-      ios,
-      matches,
-      model: config.model,
-      backend: deps.backend,
-      usage,
-      generatedAt: deps.now().toISOString(),
-    }),
-  );
-  return { matches, reportFile: paths.report, usage };
+  const generatedAt = deps.now().toISOString();
+  const meta = { model: config.model, backend: deps.backend, usage, generatedAt };
+  // Stored so `check` can map changed files to features later, and so reports can be rebuilt for free
+  const stored: StoredInventory = { android, ios, matches, meta };
+  await writeJson(paths.inventory, stored);
+  const files = await writeOverviewReports(config.projectRoot, { android, ios, matches, ...meta });
+  return { matches, reportFile: files.report, htmlFile: files.html, usage };
 }
