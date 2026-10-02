@@ -21,6 +21,26 @@ export const FeatureInventory = z.object({
 });
 export type FeatureInventory = z.infer<typeof FeatureInventory>;
 
+/**
+ * The result of looking for a platform-only feature on the other platform.
+ * - "found": it exists there as a feature of its own (the inventory missed it)
+ * - "part_of": it exists there, but inside another feature
+ * - "not_found": the agent looked and could not find it
+ * - "unverified": the agent claimed it exists, but the evidence did not check out
+ */
+export const PresenceStatus = z.enum(["found", "part_of", "not_found", "unverified"]);
+export type PresenceStatus = z.infer<typeof PresenceStatus>;
+
+export const PresenceCheck = z.object({
+  platform: Platform,
+  status: PresenceStatus,
+  /** Where it was found, e.g. the name of the feature it is part of. */
+  name: z.string().default(""),
+  note: z.string().default(""),
+  evidence: z.array(Evidence).default([]),
+});
+export type PresenceCheck = z.infer<typeof PresenceCheck>;
+
 /** One row of the feature matrix: the same feature on both platforms, or on one only. */
 export const FeatureMatch = z.object({
   /** Platform-neutral id, suitable as a feature id in .driftcheck/config.yml. */
@@ -32,7 +52,23 @@ export const FeatureMatch = z.object({
   note: z.string().default(""),
   /** True when the feature is shared and likely to differ in ways worth a deep comparison. */
   deepCompare: z.boolean().default(false),
+  /** Set for platform-only rows after the other platform was searched for the feature. */
+  check: PresenceCheck.optional(),
 });
 export type FeatureMatch = z.infer<typeof FeatureMatch>;
 
-export const MatchOutput = z.object({ matches: z.array(FeatureMatch) });
+/** What the presence-check agent returns for each candidate feature. */
+export const PresenceAnswer = z.object({
+  rowId: z.string(),
+  status: z.enum(["found", "part_of", "not_found"]),
+  name: z.string().default(""),
+  note: z.string().default(""),
+  evidence: z.array(Evidence).default([]),
+});
+export const PresenceOutput = z.object({ answers: z.array(PresenceAnswer) });
+export type PresenceAnswer = z.infer<typeof PresenceAnswer>;
+
+/** What the matching model returns: rows without a presence check, which only the check step may set. */
+export const MatchRow = FeatureMatch.omit({ check: true });
+export type MatchRow = z.infer<typeof MatchRow>;
+export const MatchOutput = z.object({ matches: z.array(MatchRow) });

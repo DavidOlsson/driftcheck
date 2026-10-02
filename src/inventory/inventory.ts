@@ -2,7 +2,7 @@ import type { Config } from "../config/config.js";
 import { AgentError, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
 import type { SourceReader } from "../io/fileReader.js";
 import type { LlmClient } from "../llm/LlmClient.js";
-import { FeatureInventory, MatchOutput, type FeatureMatch } from "../model/inventory.js";
+import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow } from "../model/inventory.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { Platform } from "../model/spec.js";
 import { checkEvidence, type VerifiedEvidence } from "../verify/verify.js";
@@ -94,7 +94,7 @@ export async function extractInventory(
  * Makes the model's matching trustworthy: unknown ids are dropped, each platform feature is used at
  * most once, and every feature the model left out is added as platform-only, so nothing disappears.
  */
-export function completeMatches(matches: FeatureMatch[], android: FeatureInventory, ios: FeatureInventory): FeatureMatch[] {
+export function completeMatches(matches: MatchRow[], android: FeatureInventory, ios: FeatureInventory): FeatureMatch[] {
   const known = { android: new Set(android.features.map((f) => f.id)), ios: new Set(ios.features.map((f) => f.id)) };
   const used = { android: new Set<string>(), ios: new Set<string>() };
   const take = (platform: Platform, id: string | null): string | null => {

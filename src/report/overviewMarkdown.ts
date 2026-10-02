@@ -2,7 +2,8 @@ import { stringify as toYaml } from "yaml";
 import type { Usage } from "../extract/AgentRunner.js";
 import type { VerifiedInventory } from "../inventory/inventory.js";
 import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
-import type { FeatureMatch } from "../model/inventory.js";
+import { groupOf, type MatrixGroup } from "../inventory/presence.js";
+import type { FeatureMatch, PresenceCheck } from "../model/inventory.js";
 import { usageLabel } from "./markdown.js";
 
 export interface OverviewReportInput {
@@ -28,6 +29,23 @@ function side(feature: InventoryFeature | undefined): string {
   return cell(`✅ ${feature.name}${ref}`);
 }
 
+/** The side of a platform-only row where the presence check looked for the feature. */
+function checkedSide(check: PresenceCheck | undefined): string {
+  if (!check) return "— (not checked)";
+  const e = check.evidence[0];
+  const ref = e ? ` (\`${e.file}:${e.line}\`)` : "";
+  switch (check.status) {
+    case "found":
+      return cell(`✅ ${check.name || "found"}${ref}, found by the presence check`);
+    case "part_of":
+      return cell(`↪ part of ${check.name || "another feature"}${ref}`);
+    case "not_found":
+      return "— not found";
+    case "unverified":
+      return cell(`❓ claimed in ${check.name || "another feature"}${ref}, evidence not verified`);
+  }
+}
+
 /** File names without folders or extensions make good hints for the agent in `compare`. */
 function hintsFor(...features: (InventoryFeature | undefined)[]): string[] {
   const names = features.flatMap((f) => [...(f?.entryPoints.map((e) => e.file) ?? []), ...(f?.files ?? [])]);
@@ -41,32 +59,50 @@ export function renderOverviewReport(input: OverviewReportInput): string {
     android: new Map(android.features.map((f) => [f.id, f])),
     ios: new Map(ios.features.map((f) => [f.id, f])),
   };
-  const both = matches.filter((m) => m.android && m.ios);
-  const androidOnly = matches.filter((m) => m.android && !m.ios);
-  const iosOnly = matches.filter((m) => !m.android && m.ios);
+  const groups: Record<MatrixGroup, FeatureMatch[]> = {
+    both: [],
+    different_structure: [],
+    android_only: [],
+    ios_only: [],
+    uncertain: [],
+  };
+  for (const m of matches) groups[groupOf(m)].push(m);
+  const both = groups.both;
 
   const out: string[] = [];
   out.push(`# Feature overview`, "");
   out.push(`| | Android | iOS |`, `|---|---|---|`, `| Summary | ${cell(android.summary)} | ${cell(ios.summary)} |`, "");
   out.push(`## Summary`, "", `| | Count |`, `|---|---|`);
-  out.push(`| On both platforms | ${both.length} |`, `| 🟢 Android only | ${androidOnly.length} |`, `| 🔵 iOS only | ${iosOnly.length} |`, "");
+  out.push(
+    `| On both platforms | ${groups.both.length} |`,
+    `| ↪ Structured differently | ${groups.different_structure.length} |`,
+    `| 🟢 Android only | ${groups.android_only.length} |`,
+    `| 🔵 iOS only | ${groups.ios_only.length} |`,
+    `| ❓ Uncertain | ${groups.uncertain.length} |`,
+    "",
+  );
 
-  const table = (title: string, rows: FeatureMatch[]) => {
+  const table = (title: string, intro: string, rows: FeatureMatch[]) => {
     if (rows.length === 0) return;
-    out.push(`## ${title}`, "", `| Feature | Android | iOS | Notes |`, `|---|---|---|---|`);
+    out.push(`## ${title}`, "");
+    if (intro) out.push(intro, "");
+    out.push(`| Feature | Android | iOS | Notes |`, `|---|---|---|---|`);
     for (const m of rows) {
-      const a = m.android ? byId.android.get(m.android) : undefined;
-      const i = m.ios ? byId.ios.get(m.ios) : undefined;
+      const a = m.android ? side(byId.android.get(m.android)) : checkedSide(m.check);
+      const i = m.ios ? side(byId.ios.get(m.ios)) : checkedSide(m.check);
+      const notes = [m.note, m.check?.note].filter(Boolean).join(" ");
       const flag = m.deepCompare ? " 🔍" : "";
-      out.push(`| ${cell(m.name)}${flag} | ${side(a)} | ${side(i)} | ${cell(m.note)} |`);
+      out.push(`| ${cell(m.name)}${flag} | ${a} | ${i} | ${cell(notes)} |`);
     }
     out.push("");
   };
-  table("On both platforms", both);
-  table("🟢 Android only", androidOnly);
-  table("🔵 iOS only", iosOnly);
+  table("On both platforms", "", groups.both);
+  table("↪ Structured differently", "Exists on both platforms, but inside another feature on one of them.", groups.different_structure);
+  table("🟢 Android only", "The iOS app was searched for these and nothing serving the same purpose was found.", groups.android_only);
+  table("🔵 iOS only", "The Android app was searched for these and nothing serving the same purpose was found.", groups.ios_only);
+  table("❓ Uncertain", "Not checked, or found only with evidence that did not verify. Check by hand.", groups.uncertain);
 
-  const suggested = both.filter((m) => m.deepCompare);
+  const suggested = both.filter((m) => m.deepCompare && m.android && m.ios);
   if (suggested.length > 0) {
     out.push(`## 🔍 Suggested deep comparisons`, "");
     out.push("These shared features are the most likely to differ in ways users notice. Add them to `.driftcheck/config.yml` and run `driftcheck compare <id>`:", "");
@@ -83,7 +119,7 @@ export function renderOverviewReport(input: OverviewReportInput): string {
   out.push(
     `- **Android:** ${android.features.length} features, ${verified(android)} with an entry point verified against the source`,
     `- **iOS:** ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source`,
-    `- Matching is done by the model from names and descriptions; check notes marked as uncertain.`,
+    `- Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.`,
     `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${usageLabel(backend, usage)}`,
     `- **Generated:** ${generatedAt} by driftcheck`,
     "",

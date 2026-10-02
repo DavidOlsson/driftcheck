@@ -27,7 +27,7 @@ node dist/cli.js compare search       # describes "search" on both platforms and
 node dist/cli.js compare search --backend api   # force the API key instead of Claude Code
 ```
 
-`overview` lets one read-only agent per platform list the app's user-facing features with verified entry points, matches them across platforms and writes `.driftcheck/reports/overview.md`: a feature matrix (both platforms / Android only / iOS only), notes on visible differences, and suggested features for a deep comparison as a ready-to-paste `features:` block for the config. The inventory is stored in `.driftcheck/inventory.json`.
+`overview` lets one read-only agent per platform list the app's user-facing features with verified entry points, matches them across platforms, and then searches the other platform for every feature that was listed on one side only (two separate inventories rarely use the same granularity). It writes `.driftcheck/reports/overview.md`: a feature matrix (both platforms / structured differently / Android only / iOS only / uncertain), notes on visible differences, and suggested features for a deep comparison as a ready-to-paste `features:` block for the config. The inventory is stored in `.driftcheck/inventory.json`.
 
 `compare` runs one read-only agent per platform, verifies every claim against the source, compares the two descriptions and writes:
 
