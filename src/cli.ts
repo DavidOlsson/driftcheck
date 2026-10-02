@@ -12,7 +12,7 @@ import { ClaudeCliAgentRunner } from "./extract/ClaudeCliAgentRunner.js";
 import { ClaudeCliLlmClient } from "./llm/ClaudeCliLlmClient.js";
 import { NodeCommandRunner } from "./io/process.js";
 import { BACKENDS, selectBackend, type Backend, type BackendChoice } from "./backend.js";
-import { runOverview } from "./commands/overviewCommand.js";
+import { rerenderOverview, runOverview } from "./commands/overviewCommand.js";
 import { groupOf, type MatrixGroup } from "./inventory/presence.js";
 import type { Usage } from "./extract/AgentRunner.js";
 import { usageLabel } from "./report/markdown.js";
@@ -102,8 +102,19 @@ withClaudeOptions(
     `Features: ${count("both")} on both platforms, ${count("different_structure")} structured differently, ` +
       `${count("android_only")} Android only, ${count("ios_only")} iOS only, ${count("uncertain")} uncertain`,
   );
+  console.log(`HTML report: ${path.relative(process.cwd(), result.htmlFile)}`);
   printReportAndUsage(result.reportFile, deps, result.usage);
 });
+
+program
+  .command("report <kind>")
+  .description('rebuild reports from stored results without calling Claude (kind: "overview")')
+  .action(async (kind: string) => {
+    if (kind !== "overview") throw new ConfigError(`Unknown report "${kind}". Supported: overview`);
+    const files = await rerenderOverview(projectRoot());
+    console.log(`Report: ${path.relative(process.cwd(), files.report)}`);
+    console.log(`HTML report: ${path.relative(process.cwd(), files.html)}`);
+  });
 
 withClaudeOptions(
   program.command("compare <feature>").description("describe a feature on both platforms with Claude and report the differences"),

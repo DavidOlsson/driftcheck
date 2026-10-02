@@ -20,7 +20,7 @@ function cell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-type InventoryFeature = VerifiedInventory["features"][number];
+export type InventoryFeature = VerifiedInventory["features"][number];
 
 function side(feature: InventoryFeature | undefined): string {
   if (!feature) return "—";
@@ -47,7 +47,7 @@ function checkedSide(check: PresenceCheck | undefined): string {
 }
 
 /** File names without folders or extensions make good hints for the agent in `compare`. */
-function hintsFor(...features: (InventoryFeature | undefined)[]): string[] {
+export function hintsFor(...features: (InventoryFeature | undefined)[]): string[] {
   const names = features.flatMap((f) => [...(f?.entryPoints.map((e) => e.file) ?? []), ...(f?.files ?? [])]);
   const base = names.map((n) => n.split("/").pop()!.replace(/\.[a-z]+$/i, "")).filter(Boolean);
   return [...new Set(base)].slice(0, 6);
@@ -120,9 +120,14 @@ export function renderOverviewReport(input: OverviewReportInput): string {
     `- **Android:** ${android.features.length} features, ${verified(android)} with an entry point verified against the source`,
     `- **iOS:** ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source`,
     `- Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.`,
-    `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${usageLabel(backend, usage)}`,
-    `- **Generated:** ${generatedAt} by driftcheck`,
-    "",
   );
+  // Inventories stored before run details were recorded have no model, usage or date to show
+  if (model !== "unknown") {
+    out.push(
+      `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${usageLabel(backend, usage)}`,
+      `- **Generated:** ${generatedAt} by driftcheck`,
+    );
+  }
+  out.push("");
   return out.join("\n");
 }
