@@ -42,4 +42,9 @@ export const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
 export class AgentError extends Error {
   override name = "AgentError";
+
+  /** What the failed run cost, so it can still be reported to the user. */
+  constructor(message: string, readonly usage: Usage = NO_USAGE) {
+    super(message);
+  }
 }

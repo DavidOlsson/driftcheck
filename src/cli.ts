@@ -5,6 +5,9 @@ import { ConfigError } from "./config/config.js";
 import { AgentError } from "./extract/AgentRunner.js";
 import { initProject, validateProject } from "./commands/project.js";
 import { formatSummary, verifySpecFile } from "./commands/verifyCommand.js";
+import { runCompare } from "./commands/compareCommand.js";
+import { ClaudeAgentRunner } from "./extract/ClaudeAgentRunner.js";
+import { AnthropicLlmClient } from "./llm/LlmClient.js";
 import { createRequire } from "node:module";
 
 // Read at runtime so it works both from src/ (tests) and dist/ (published package)
@@ -45,6 +48,35 @@ program
     const result = await verifySpecFile(config, path.resolve(spec));
     console.log(formatSummary(result.spec, result.summary));
   });
+
+program
+  .command("compare <feature>")
+  .description("describe a feature on both platforms with Claude and report the differences (calls the API)")
+  .option("-m, --model <model>", "Claude model to use instead of the configured one")
+  .action(async (featureId: string, options: { model?: string }) => {
+    requireApiKey();
+    const loaded = await validateProject(projectRoot());
+    const config = options.model ? { ...loaded, model: options.model } : loaded;
+    const result = await runCompare(config, featureId, {
+      runner: new ClaudeAgentRunner(`driftcheck/${version}`),
+      llm: new AnthropicLlmClient(),
+      now: () => new Date(),
+      log: (message) => console.log(message),
+    });
+    const counts = Object.entries(
+      result.findings.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.category]: (acc[f.category] ?? 0) + 1 }), {}),
+    )
+      .map(([category, count]) => `${count} ${category}`)
+      .join(", ");
+    console.log(`Findings: ${counts || "none"}`);
+    console.log(`Report: ${path.relative(process.cwd(), result.reportFile)} · estimated cost $${result.usage.costUsd.toFixed(2)}`);
+  });
+
+function requireApiKey(): void {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new ConfigError("ANTHROPIC_API_KEY is not set. Create a key at https://console.anthropic.com and export it in your shell.");
+  }
+}
 
 try {
   await program.parseAsync();
