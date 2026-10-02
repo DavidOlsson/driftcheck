@@ -1,8 +1,8 @@
 import os from "node:os";
-import { z } from "zod";
 import { AgentError, type Usage } from "../extract/AgentRunner.js";
 import { runClaudeCli } from "../extract/claudeCli.js";
 import type { CommandRunner } from "../io/process.js";
+import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { LlmClient, LlmRequest } from "./LlmClient.js";
 
 /** Budget for a single tool-less comparison call. */
@@ -18,7 +18,7 @@ export class ClaudeCliLlmClient implements LlmClient {
       cwd: os.tmpdir(),
       systemPrompt: request.system,
       prompt: request.prompt,
-      jsonSchema: z.toJSONSchema(request.schema, { io: "input" }) as Record<string, unknown>,
+      jsonSchema: toOutputJsonSchema(request.schema),
       model: request.model,
       maxBudgetUsd: COMPARE_BUDGET_USD,
       tools: "",
