@@ -13,6 +13,7 @@ import { ClaudeCliLlmClient } from "./llm/ClaudeCliLlmClient.js";
 import { NodeCommandRunner } from "./io/process.js";
 import { BACKENDS, selectBackend, type Backend, type BackendChoice } from "./backend.js";
 import { runOverview } from "./commands/overviewCommand.js";
+import { groupOf, type MatrixGroup } from "./inventory/presence.js";
 import type { Usage } from "./extract/AgentRunner.js";
 import { usageLabel } from "./report/markdown.js";
 import { createRequire } from "node:module";
@@ -95,10 +96,12 @@ withClaudeOptions(
 ).action(async (options: ClaudeOptions) => {
   const { config, deps } = await setupClaude(options);
   const result = await runOverview(config, deps);
-  const both = result.matches.filter((m) => m.android && m.ios).length;
-  const androidOnly = result.matches.filter((m) => m.android && !m.ios).length;
-  const iosOnly = result.matches.filter((m) => !m.android && m.ios).length;
-  console.log(`Features: ${both} on both platforms, ${androidOnly} Android only, ${iosOnly} iOS only`);
+  // Same grouping as the report, i.e. after the presence check
+  const count = (group: MatrixGroup) => result.matches.filter((m) => groupOf(m) === group).length;
+  console.log(
+    `Features: ${count("both")} on both platforms, ${count("different_structure")} structured differently, ` +
+      `${count("android_only")} Android only, ${count("ios_only")} iOS only, ${count("uncertain")} uncertain`,
+  );
   printReportAndUsage(result.reportFile, deps, result.usage);
 });
 
