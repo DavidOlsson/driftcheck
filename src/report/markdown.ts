@@ -46,10 +46,23 @@ export function formatUtc(iso: string): string {
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 
+function windowState(window: PlanWindow): string {
+  const used = window.usedPercent !== undefined ? `${window.usedPercent}% used` : null;
+  switch (window.status) {
+    case "rejected":
+      return "limit reached";
+    case "allowed_warning": {
+      const over = window.thresholdPercent !== undefined ? `over ${window.thresholdPercent}% used` : used;
+      return `approaching limit${over ? ` (${over})` : ""}`;
+    }
+    default:
+      return used ?? "OK";
+  }
+}
+
 function formatWindow(name: string, window: PlanWindow | undefined, formatTime: (iso: string) => string): string | null {
   if (!window) return null;
-  const used = window.usedPercent !== undefined ? `${window.usedPercent}% used` : "usage unknown";
-  return `${name} ${used}${window.resetsAt ? ` (resets ${formatTime(window.resetsAt)})` : ""}`;
+  return `${name} ${windowState(window)}${window.resetsAt ? `, resets ${formatTime(window.resetsAt)}` : ""}`;
 }
 
 /**

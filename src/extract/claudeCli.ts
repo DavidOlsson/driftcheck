@@ -92,7 +92,13 @@ export function withLoginHint(message: string): string {
 const RateLimitEvent = z.object({
   type: z.literal("rate_limit_event"),
   rate_limit_info: z
-    .object({ rateLimitType: z.string(), utilization: z.number(), resetsAt: z.number() })
+    .object({
+      status: z.enum(["allowed", "allowed_warning", "rejected"]),
+      rateLimitType: z.string(),
+      utilization: z.number(),
+      surpassedThreshold: z.number(),
+      resetsAt: z.number(),
+    })
     .partial(),
 });
 
@@ -116,11 +122,14 @@ export function planUsageFromEvents(events: unknown[]): PlanUsage | undefined {
     if (!parsed.success) continue;
     const info = parsed.data.rate_limit_info;
     const window: PlanWindow = {
+      ...(info.status !== undefined && { status: info.status }),
       ...(info.utilization !== undefined && { usedPercent: toPercent(info.utilization) }),
+      ...(info.surpassedThreshold !== undefined && { thresholdPercent: toPercent(info.surpassedThreshold) }),
       ...(info.resetsAt !== undefined && { resetsAt: toIso(info.resetsAt) }),
     };
-    if (info.rateLimitType === "five_hour") plan.fiveHour = window;
-    if (info.rateLimitType === "seven_day") plan.weekly = window;
+    // Later events may omit fields an earlier one had (e.g. the percentage), so update instead of replace
+    if (info.rateLimitType === "five_hour") plan.fiveHour = { ...plan.fiveHour, ...window };
+    if (info.rateLimitType === "seven_day") plan.weekly = { ...plan.weekly, ...window };
   }
   return plan.fiveHour || plan.weekly ? plan : undefined;
 }

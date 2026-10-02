@@ -74,12 +74,13 @@ describe("parseCliOutput", () => {
       JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "five_hour", utilization: 0.34, resetsAt: 1790850000 } }),
       JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "seven_day", utilization: 12, resetsAt: 1791100000000 } }),
       JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "overage", utilization: 0.9 } }),
+      JSON.stringify({ type: "rate_limit_event", rate_limit_info: { status: "allowed", rateLimitType: "five_hour", resetsAt: 1790850000 } }),
       JSON.stringify({ type: "result", subtype: "success", structured_output: { ok: 1 }, total_cost_usd: 0.1, usage: { input_tokens: 5, output_tokens: 6 } }),
     ].join("\n");
     const { output, usage } = parseCliOutput(lines, "", 0, "/repo");
     expect(output).toEqual({ ok: 1 });
     expect(usage.plan).toEqual({
-      fiveHour: { usedPercent: 34, resetsAt: new Date(1790850000 * 1000).toISOString() },
+      fiveHour: { status: "allowed", usedPercent: 34, resetsAt: new Date(1790850000 * 1000).toISOString() },
       weekly: { usedPercent: 12, resetsAt: new Date(1791100000000).toISOString() },
     });
   });
@@ -181,12 +182,14 @@ describe("ClaudeCliLlmClient", () => {
 });
 
 describe("addUsage with plan windows", () => {
-  it("keeps the most used reading of each window when parallel runs report different values", async () => {
+  it("prefers the more severe status, then the higher reading, when parallel runs report different values", async () => {
     const { addUsage, NO_USAGE } = await import("../src/extract/AgentRunner.js");
     const a = { ...NO_USAGE, plan: { fiveHour: { usedPercent: 30, resetsAt: "x" } } };
     const b = { ...NO_USAGE, plan: { fiveHour: { usedPercent: 34, resetsAt: "x" }, weekly: { usedPercent: 12 } } };
     expect(addUsage(a, b).plan).toEqual({ fiveHour: { usedPercent: 34, resetsAt: "x" }, weekly: { usedPercent: 12 } });
     expect(addUsage(b, a).plan?.fiveHour?.usedPercent).toBe(34);
     expect(addUsage(NO_USAGE, NO_USAGE).plan).toBeUndefined();
+    const warn = { ...NO_USAGE, plan: { fiveHour: { status: "allowed_warning" as const } } };
+    expect(addUsage(warn, b).plan?.fiveHour?.status).toBe("allowed_warning");
   });
 });

@@ -70,8 +70,17 @@ describe("usageLabel", () => {
       weekly: { usedPercent: 12, resetsAt: "2026-10-05T08:00:00.000Z" },
     };
     expect(usageLabel("claude-code", { ...usage, plan })).toBe(
-      "**Plan usage:** 5-hour window 34% used (resets 2026-10-02 15:40 UTC) · weekly limit 12% used (resets 2026-10-05 08:00 UTC)",
+      "**Plan usage:** 5-hour window 34% used, resets 2026-10-02 15:40 UTC · weekly limit 12% used, resets 2026-10-05 08:00 UTC",
     );
+  });
+
+  it("uses the status when no percentage is reported, as Claude Code usually does", () => {
+    const ok = { fiveHour: { status: "allowed" as const, resetsAt: "2026-10-02T16:10:00.000Z" } };
+    expect(usageLabel("claude-code", { ...usage, plan: ok })).toBe("**Plan usage:** 5-hour window OK, resets 2026-10-02 16:10 UTC");
+    const warning = { weekly: { status: "allowed_warning" as const, thresholdPercent: 80 } };
+    expect(usageLabel("claude-code", { ...usage, plan: warning })).toBe("**Plan usage:** weekly limit approaching limit (over 80% used)");
+    const rejected = { fiveHour: { status: "rejected" as const, usedPercent: 100, resetsAt: "2026-10-02T16:10:00.000Z" } };
+    expect(usageLabel("claude-code", { ...usage, plan: rejected })).toBe("**Plan usage:** 5-hour window limit reached, resets 2026-10-02 16:10 UTC");
   });
 
   it("shows only the windows that were reported", () => {
