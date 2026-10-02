@@ -37,7 +37,8 @@ export function maxCostUsd(config: Config): number {
 export async function runCompare(config: Config, featureId: string, deps: CompareDeps): Promise<CompareResult> {
   const feature = findFeature(config, featureId);
   const paths = storePaths(config.projectRoot, feature.id);
-  deps.log(`Comparing "${feature.name}" with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]} (at most about $${maxCostUsd(config).toFixed(2)})…`);
+  const limit = deps.backend === "api" ? ` (at most about $${maxCostUsd(config).toFixed(2)})` : "";
+  deps.log(`Comparing "${feature.name}" with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]}${limit}…`);
 
   // Both platforms in parallel; if one fails, the other's cost is still reported
   const results = await Promise.allSettled(
@@ -46,7 +47,8 @@ export async function runCompare(config: Config, featureId: string, deps: Compar
       const verified = await verifySpec(spec, new FsSourceReader(config.platforms[platform]));
       await writeJson(paths.spec(platform), verified);
       const ok = verified.items.filter((i) => i.verified).length;
-      deps.log(`  ${platform}: ${verified.items.length} items, ${ok} verified against the source ($${usage.costUsd.toFixed(2)})`);
+      const cost = deps.backend === "api" ? ` ($${usage.costUsd.toFixed(2)})` : "";
+      deps.log(`  ${platform}: ${verified.items.length} items, ${ok} verified against the source${cost}`);
       return { verified, usage };
     }),
   );
@@ -57,7 +59,8 @@ export async function runCompare(config: Config, featureId: string, deps: Compar
   const failure = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
   if (failure) {
     if (failure.reason instanceof AgentError) {
-      throw new AgentError(`${failure.reason.message} (this run cost about $${usage.costUsd.toFixed(2)})`, usage);
+      const cost = deps.backend === "api" ? ` (this run cost about $${usage.costUsd.toFixed(2)})` : "";
+      throw new AgentError(`${failure.reason.message}${cost}`, usage);
     }
     throw failure.reason;
   }

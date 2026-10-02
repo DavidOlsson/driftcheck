@@ -21,7 +21,8 @@ describe("buildCliArgs", () => {
 
   it("runs headless with structured JSON output", () => {
     expect(args[0]).toBe("-p");
-    expect(flag(args, "--output-format")).toBe("json");
+    expect(flag(args, "--output-format")).toBe("stream-json");
+    expect(args).toContain("--verbose");
     expect(JSON.parse(flag(args, "--json-schema")!)).toEqual({ type: "object" });
     expect(flag(args, "--system-prompt")).toBe("system");
     expect(flag(args, "--model")).toBe("claude-sonnet-5-5");
@@ -64,6 +65,30 @@ describe("parseCliOutput", () => {
     });
   });
 
+  it("reads the result from a stream of events and keeps the latest plan windows", () => {
+    const lines = [
+      JSON.stringify({ type: "system", subtype: "init" }),
+      "not json, e.g. a stray log line",
+      JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "five_hour", utilization: 0.2, resetsAt: 1790850000 } }),
+      JSON.stringify({ type: "assistant", message: {} }),
+      JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "five_hour", utilization: 0.34, resetsAt: 1790850000 } }),
+      JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "seven_day", utilization: 12, resetsAt: 1791100000000 } }),
+      JSON.stringify({ type: "rate_limit_event", rate_limit_info: { rateLimitType: "overage", utilization: 0.9 } }),
+      JSON.stringify({ type: "result", subtype: "success", structured_output: { ok: 1 }, total_cost_usd: 0.1, usage: { input_tokens: 5, output_tokens: 6 } }),
+    ].join("\n");
+    const { output, usage } = parseCliOutput(lines, "", 0, "/repo");
+    expect(output).toEqual({ ok: 1 });
+    expect(usage.plan).toEqual({
+      fiveHour: { usedPercent: 34, resetsAt: new Date(1790850000 * 1000).toISOString() },
+      weekly: { usedPercent: 12, resetsAt: new Date(1791100000000).toISOString() },
+    });
+  });
+
+  it("omits plan usage when Claude Code reports none", () => {
+    const { stdout } = cliSuccess({});
+    expect(parseCliOutput(stdout, "", 0, "/repo").usage.plan).toBeUndefined();
+  });
+
   it("counts cached input tokens, which the CLI reports separately", () => {
     const stdout = JSON.stringify({
       type: "result",
@@ -77,7 +102,7 @@ describe("parseCliOutput", () => {
 
   it("explains non-JSON output, such as a CLI that is not logged in", () => {
     expect(() => parseCliOutput("", "Invalid API key · Please run /login", 1, "/repo")).toThrowError(
-      /did not return JSON \(exit code 1\): Invalid API key · Please run \/login/,
+      /did not return a result \(exit code 1\): Invalid API key · Please run \/login/,
     );
   });
 
@@ -109,7 +134,8 @@ describe("parseCliOutput", () => {
   it("fails on errors, unexpected formats and missing structured output", () => {
     const err = JSON.stringify({ type: "result", subtype: "success", is_error: true, result: "rate limited" });
     expect(() => parseCliOutput(err, "", 1, "/repo")).toThrowError(/failed: rate limited/);
-    expect(() => parseCliOutput('{"hello":1}', "", 0, "/repo")).toThrowError(/unexpected result format/);
+    expect(() => parseCliOutput('{"hello":1}', "", 0, "/repo")).toThrowError(/did not return a result/);
+    expect(() => parseCliOutput('{"type":"result"}', "", 0, "/repo")).toThrowError(/unexpected result format/);
     const empty = JSON.stringify({ type: "result", subtype: "success", result: "done" });
     expect(() => parseCliOutput(empty, "", 0, "/repo")).toThrowError(/without structured output/);
   });
@@ -151,5 +177,16 @@ describe("ClaudeCliLlmClient", () => {
     await expect(
       new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100 }),
     ).rejects.toThrowError(AgentError);
+  });
+});
+
+describe("addUsage with plan windows", () => {
+  it("keeps the most used reading of each window when parallel runs report different values", async () => {
+    const { addUsage, NO_USAGE } = await import("../src/extract/AgentRunner.js");
+    const a = { ...NO_USAGE, plan: { fiveHour: { usedPercent: 30, resetsAt: "x" } } };
+    const b = { ...NO_USAGE, plan: { fiveHour: { usedPercent: 34, resetsAt: "x" }, weekly: { usedPercent: 12 } } };
+    expect(addUsage(a, b).plan).toEqual({ fiveHour: { usedPercent: 34, resetsAt: "x" }, weekly: { usedPercent: 12 } });
+    expect(addUsage(b, a).plan?.fiveHour?.usedPercent).toBe(34);
+    expect(addUsage(NO_USAGE, NO_USAGE).plan).toBeUndefined();
   });
 });

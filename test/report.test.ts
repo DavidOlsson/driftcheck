@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { estimateCostUsd } from "../src/llm/pricing.js";
 import type { Finding } from "../src/model/finding.js";
-import { renderCompareReport } from "../src/report/markdown.js";
+import { renderCompareReport, usageLabel } from "../src/report/markdown.js";
 import { finding, verifiedSpec } from "./helpers/specs.js";
 
 const report = (findings: Finding[], backend: "api" | "claude-code" = "api") =>
@@ -43,16 +43,39 @@ describe("renderCompareReport", () => {
     expect(text).toContain("2026-10-02T10:00:00.000Z");
   });
 
-  it("labels subscription runs as an API-equivalent estimate", () => {
+  it("shows plan usage instead of a dollar estimate for subscription runs", () => {
     const text = report([finding()] as Finding[], "claude-code");
     expect(text).toContain("via Claude Code CLI (your Claude subscription)");
-    expect(text).toContain("API-equivalent cost:** about $0.46 (counts toward your Claude subscription usage");
+    expect(text).not.toContain("$0.46");
+    expect(text).toContain("**Plan usage:** not reported by Claude Code for this run");
     expect(report([finding()] as Finding[])).toContain("via Anthropic API (ANTHROPIC_API_KEY)");
   });
 
   it("keeps table cells intact when text contains pipes or newlines", () => {
     const text = report([finding({ title: "a | b\nc" })] as Finding[]);
     expect(text).toContain("a \\| b c");
+  });
+});
+
+describe("usageLabel", () => {
+  const usage = { inputTokens: 1, outputTokens: 1, costUsd: 0.62 };
+
+  it("shows dollars for API runs", () => {
+    expect(usageLabel("api", usage)).toBe("**Estimated cost:** $0.62");
+  });
+
+  it("shows the 5-hour and weekly windows in UTC for subscription runs", () => {
+    const plan = {
+      fiveHour: { usedPercent: 34, resetsAt: "2026-10-02T15:40:00.000Z" },
+      weekly: { usedPercent: 12, resetsAt: "2026-10-05T08:00:00.000Z" },
+    };
+    expect(usageLabel("claude-code", { ...usage, plan })).toBe(
+      "**Plan usage:** 5-hour window 34% used (resets 2026-10-02 15:40 UTC) · weekly limit 12% used (resets 2026-10-05 08:00 UTC)",
+    );
+  });
+
+  it("shows only the windows that were reported", () => {
+    expect(usageLabel("claude-code", { ...usage, plan: { weekly: { usedPercent: 5 } } })).toBe("**Plan usage:** weekly limit 5% used");
   });
 });
 
