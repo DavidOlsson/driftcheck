@@ -1,10 +1,10 @@
-import { z } from "zod";
 import type { Config, FeatureConfig } from "../config/config.js";
+import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import { FeatureSpec, type Platform } from "../model/spec.js";
 import { AgentError, type AgentRunner, type Usage } from "./AgentRunner.js";
 import { featurePrompt, SYSTEM_PROMPT } from "./prompts.js";
 
-export const FEATURE_SPEC_JSON_SCHEMA = z.toJSONSchema(FeatureSpec, { io: "input" }) as Record<string, unknown>;
+export const FEATURE_SPEC_JSON_SCHEMA = toOutputJsonSchema(FeatureSpec);
 
 export interface ExtractResult {
   spec: FeatureSpec;

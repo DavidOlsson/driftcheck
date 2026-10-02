@@ -64,10 +64,34 @@ describe("parseCliOutput", () => {
     });
   });
 
+  it("counts cached input tokens, which the CLI reports separately", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      structured_output: {},
+      total_cost_usd: 0.18,
+      usage: { input_tokens: 40, output_tokens: 900, cache_creation_input_tokens: 12000, cache_read_input_tokens: 80000 },
+    });
+    expect(parseCliOutput(stdout, "", 0, "/repo").usage).toEqual({ inputTokens: 92040, outputTokens: 900, costUsd: 0.18 });
+  });
+
   it("explains non-JSON output, such as a CLI that is not logged in", () => {
     expect(() => parseCliOutput("", "Invalid API key · Please run /login", 1, "/repo")).toThrowError(
       /did not return JSON \(exit code 1\): Invalid API key · Please run \/login/,
     );
+  });
+
+  it("tells the user how to log in when Claude Code is not authenticated", () => {
+    const expired = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: true,
+      result: "Failed to authenticate. API Error: 401 OAuth access token has expired.",
+    });
+    expect(() => parseCliOutput(expired, "", 1, "/repo")).toThrowError(/Run "claude" in a terminal and log in \(\/login\)/);
+    expect(() => parseCliOutput("", "Please run /login", 1, "/repo")).toThrowError(/log in \(\/login\)/);
+    const other = JSON.stringify({ type: "result", subtype: "success", is_error: true, result: "rate limited" });
+    expect(() => parseCliOutput(other, "", 1, "/repo")).not.toThrowError(/log in/);
   });
 
   it("maps budget errors and keeps the cost", () => {

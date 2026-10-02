@@ -83,3 +83,15 @@ describe("extractFeature", () => {
     expect(JSON.stringify(FEATURE_SPEC_JSON_SCHEMA)).toContain("evidence");
   });
 });
+
+describe("toOutputJsonSchema", () => {
+  it("drops the $schema draft URL that Claude Code's validator rejects, keeping the constraints", async () => {
+    const { toOutputJsonSchema } = await import("../src/model/jsonSchema.js");
+    const { CompareOutput } = await import("../src/compare/compare.js");
+    for (const schema of [FEATURE_SPEC_JSON_SCHEMA, toOutputJsonSchema(CompareOutput)]) {
+      expect(schema).not.toHaveProperty("$schema");
+      expect(schema).toMatchObject({ type: "object" });
+      expect(JSON.stringify(schema)).not.toContain("json-schema.org");
+    }
+  });
+});
