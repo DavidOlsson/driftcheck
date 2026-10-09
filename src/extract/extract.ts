@@ -31,12 +31,13 @@ export async function extractFeature(
   const parsed = FeatureSpec.safeParse(result.output);
   if (!parsed.success) {
     const problems = parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new AgentError(`The ${platform} agent returned output that does not match the feature schema (${problems})`);
+    throw new AgentError(`The ${platform} agent returned output that does not match the feature schema (${problems})`, result.usage);
   }
   // The agent is told which feature and platform to use, but the caller is the source of truth
   if (parsed.data.feature !== feature.id || parsed.data.platform !== platform) {
     throw new AgentError(
       `The ${platform} agent described "${parsed.data.feature}"/${parsed.data.platform} instead of "${feature.id}"/${platform}`,
+      result.usage,
     );
   }
   return { spec: parsed.data, usage: result.usage };
