@@ -29,7 +29,8 @@ Results are stored in the analyzed repository (`.driftcheck/`) so runs are incre
 - Unit tests: `npm test`
 - Type check and lint: `npm run check`
 - Build: `npm run build`
-- Evaluation against the twin-app fixtures: `npm run eval` (calls the real API, costs money)
+- Score a compare run against expected differences: `npm run eval:score -- <expected.yml> <findings.json>` (after `npm run build`; offline, no Claude calls)
+- Evaluation against the twin-app fixtures: `npm run eval` (not built yet; will call Claude for real)
 
 ## Architecture principles
 - **The agent is read-only.** It may only use `Read`, `Grep` and `Glob`, with `dontAsk` permissions. It never gets Bash, Edit, Write or network tools. In Claude Code mode this is enforced with `--restricted`, `--tools`, `--disallowedTools` and `--strict-mcp-config`.
@@ -38,7 +39,7 @@ Results are stored in the analyzed repository (`.driftcheck/`) so runs are incre
 - **Every claim needs evidence.** Feature descriptions cite file and line for each item. A deterministic verification step checks that the file exists, the line exists and the cited value appears near it, and marks each claim as verified or unverified. Reports show the difference.
 - **All I/O sits at the edges:** the agent runner, the LLM client, the file system and git are behind interfaces (`AgentRunner`, `LlmClient`, and so on). Comparison, divergence matching and report rendering are pure functions.
 - **Model output is untrusted input.** Validate it with zod against the expected schema before using it.
-- **Cost is visible and bounded.** Every run reports tokens and cost (API-equivalent for Claude Code), and every agent run has `maxBudgetUsd` (plus `maxTurns` with the SDK).
+- **Cost is visible and bounded.** Every run reports tokens, plus the estimated cost with an API key or the plan's 5-hour and weekly limits with Claude Code. Every agent run has `maxBudgetUsd` (plus `maxTurns` with the SDK).
 - **No global mutable state.** Pass configuration and dependencies explicitly.
 - **Never swallow errors.** Fail with a clear message that says what to do.
 - **Tests are written together with the code.** Unit tests never call the real API; use fake `AgentRunner` and `LlmClient` implementations.
@@ -49,7 +50,7 @@ English everywhere: code, comments, CLI output, reports, documentation and every
 
 ## Do NOT
 - Do not add, remove or swap dependencies without asking.
-- Do not run anything that calls Claude for real (API or `claude -p`: manual runs, `npm run eval`, end-to-end tests) without asking. It costs money or subscription usage.
+- Do not run anything that calls Claude for real (API or `claude -p`: manual runs, evaluation runs, end-to-end tests) without asking. It costs money or subscription usage.
 - Never send source code anywhere except the Anthropic API. No telemetry, no other services.
 - Never give the agent tools that can write files, run commands or access the network.
 - Never commit API keys or other secrets. The key is read from `ANTHROPIC_API_KEY` only.
@@ -60,18 +61,30 @@ English everywhere: code, comments, CLI output, reports, documentation and every
 - Do not touch anything on the GitHub account outside this repository, and do not change repository settings.
 - No `Co-Authored-By` trailers in commits.
 
-## Project structure (planned)
+## Project structure
 ```
 src/
-  cli.ts          CLI entry point (commander)
-  config/         .driftcheck/config.yml loading and validation
-  inventory/      overview: feature inventory per platform, matching, feature matrix
-  extract/        AgentRunner interface, Claude Agent SDK runner, prompts and schemas
-  verify/         deterministic evidence verification
-  compare/        comparison of two feature descriptions → findings
-  divergences/    intentional differences (.driftcheck/divergences.yml)
-  report/         Markdown and self-contained HTML reports
-  drift/          check mode: git diff → affected features → re-analysis
+  cli.ts             CLI entry point (commander)
+  selectBackend.ts   picks the API or Claude Code backend
+  commands/          one module per command, plus shared dependencies and the run-both-platforms helper
+  config/            .driftcheck/config.yml loading and validation
+  model/             zod schemas and types for specs, findings, inventories and backends
+  extract/           AgentRunner interface, both agent runners, prompts and the structured-run helper
+  llm/               LlmClient interface and both clients for tool-less steps
+  io/                file and process access behind interfaces
+  verify/            deterministic evidence verification
+  compare/           comparison of two feature descriptions → findings
+  inventory/         overview: feature inventory per platform, matching and presence checks
+  report/            Markdown and self-contained HTML reports
+  store/             where results are written in .driftcheck/
+  eval/              scoring of findings against expected differences
+eval/                expected differences for evaluation runs
+```
+
+Planned:
+```
+src/divergences/      intentional differences (.driftcheck/divergences.yml)
+src/drift/            check mode: git diff → affected features → re-analysis
 fixtures/twin-apps/   small synthetic Kotlin and Swift apps with known differences (evaluation)
 examples/             example reports from open source apps
 ```

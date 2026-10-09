@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AgentError, type PlanUsage, type PlanWindow, type Usage } from "./AgentRunner.js";
+import { AgentError, READ_ONLY_TOOLS, type PlanUsage, type PlanWindow, type Usage } from "./AgentRunner.js";
 import type { CommandRunner } from "../io/process.js";
 
 /**
@@ -8,7 +8,8 @@ import type { CommandRunner } from "../io/process.js";
  */
 export const CLAUDE_COMMAND = "claude";
 
-export const READ_ONLY_TOOLS = "Read,Grep,Glob";
+/** The shared read-only tool list in the CLI's comma-separated form. */
+export const READ_ONLY_TOOLS_ARG = READ_ONLY_TOOLS.join(",");
 
 /** Tools that could change files, run code or reach the network. Explicitly denied as a second layer. */
 const DENIED_TOOLS = "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Task,Agent";

@@ -4,6 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { initProject, validateProject } from "../src/commands/project.js";
 import { overviewPaths, runOverview } from "../src/commands/overviewCommand.js";
+import { maxCostUsd } from "../src/commands/perPlatform.js";
 import { AgentError, type AgentRequest } from "../src/extract/AgentRunner.js";
 import {
   completeMatches,
@@ -121,6 +122,14 @@ describe("verifyInventory", () => {
     const verified = await verifyInventory(androidInventory, reader);
     expect(verified.features.map((f) => f.verified)).toEqual([true, false, false]);
   });
+
+  it("reads each cited file once", async () => {
+    const reads: string[] = [];
+    const reader = { read: async (file: string) => (reads.push(file), null) };
+    const twice = { ...androidInventory, features: [...androidInventory.features, ...androidInventory.features] };
+    await verifyInventory(twice, reader);
+    expect(reads).toHaveLength(new Set(reads).size);
+  });
 });
 
 describe("renderOverviewReport", () => {
@@ -155,10 +164,12 @@ describe("renderOverviewReport", () => {
       android,
       ios,
       matches,
-      model: "claude-sonnet-5-5",
-      backend: "claude-code",
-      usage: { inputTokens: 10, outputTokens: 5, costUsd: 1 },
-      generatedAt: "2026-10-02T12:00:00.000Z",
+      run: {
+        model: "claude-sonnet-5-5",
+        backend: "claude-code",
+        usage: { inputTokens: 10, outputTokens: 5, costUsd: 1 },
+        generatedAt: "2026-10-02T12:00:00.000Z",
+      },
     });
 
     expect(text).toContain("| On both platforms | 2 |");
@@ -202,6 +213,8 @@ describe("runOverview", () => {
     const result = await runOverview(config, { backend: "api", runner, llm, now: () => new Date("2026-10-02T12:00:00Z"), log: (m) => logs.push(m) });
 
     expect(result.matches).toHaveLength(5);
+    expect(llm.requests[0]).toMatchObject({ task: "feature matching" });
+    expect(llm.requests[0]?.cutOffHint).toBeUndefined();
     expect(result.matches.find((m) => m.id === "settings")?.check?.status).toBe("not_found");
     expect(runner.requests.filter((r) => r.systemPrompt === PRESENCE_SYSTEM_PROMPT)).toHaveLength(2);
     expect(logs.some((l) => l.includes("checking 2 features that ios seems to lack"))).toBe(true);
@@ -209,8 +222,27 @@ describe("runOverview", () => {
     expect(stored.android.features[0].verified).toBe(true);
     expect(stored.matches[0].id).toBe("search");
     expect(await readFile(result.reportFile, "utf8")).toContain("# Feature overview");
-    expect(logs[0]).toContain("at most about $");
+    expect(logs[0]).toContain(`at most about $${maxCostUsd(config).toFixed(2)}`);
     expect(logs.some((l) => l.includes("android: 3 features, 1 with a verified entry point"))).toBe(true);
+  });
+
+  it("keeps going when a presence check fails, leaving its rows uncertain and counting its usage", async () => {
+    const config = await validateProject(root);
+    const runner = new FakeAgentRunner((r: AgentRequest) => {
+      if (r.systemPrompt === PRESENCE_SYSTEM_PROMPT) {
+        if (r.cwd.endsWith("ios")) throw new AgentError("budget reached", { inputTokens: 0, outputTokens: 0, costUsd: 0.5 });
+        return { answers: [] };
+      }
+      return r.cwd.endsWith("android") ? androidInventory : iosInventory;
+    });
+    const llm = new FakeLlmClient(() => ({ matches: [match({ id: "search", name: "Search", android: "search", ios: "find" })] }));
+    const logs: string[] = [];
+    const result = await runOverview(config, { backend: "api", runner, llm, now: () => new Date(), log: (m) => logs.push(m) });
+
+    expect(logs).toContain("  ios presence check failed: budget reached");
+    expect(result.matches.find((m) => m.id === "voice")?.check).toBeUndefined();
+    // Two inventories and one presence check at 0.01 each, matching at 0.004, and the failed check's 0.5
+    expect(result.usage.costUsd).toBeCloseTo(0.534);
   });
 });
 
@@ -244,6 +276,18 @@ describe("presence check", () => {
       ["b", "unverified"],
       ["c", "not_found"],
     ]);
+  });
+
+  it("reads a file once when several answers cite it", async () => {
+    const reads: string[] = [];
+    const reader = { read: async (file: string) => (reads.push(file), "class Real") };
+    const evidence = [{ file: "Real.swift", line: 1, quote: "class Real" }];
+    await toChecks(
+      "ios",
+      ["a", "b", "c"].map((rowId) => ({ rowId, status: "part_of" as const, name: "Real", note: "", evidence })),
+      reader,
+    );
+    expect(reads).toEqual(["Real.swift"]);
   });
 
   it("groups rows by the check result", () => {

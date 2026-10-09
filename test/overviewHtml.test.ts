@@ -6,6 +6,7 @@ import { overviewPaths, rerenderOverview } from "../src/commands/overviewCommand
 import type { VerifiedInventory } from "../src/inventory/inventory.js";
 import type { FeatureMatch } from "../src/model/inventory.js";
 import { esc, renderOverviewHtml } from "../src/report/overviewHtml.js";
+import { ConfigError } from "../src/config/config.js";
 
 const feature = (id: string, name: string, file: string, verified = true) => ({
   id,
@@ -53,10 +54,12 @@ const render = (overrides: Partial<Parameters<typeof renderOverviewHtml>[0]> = {
     android,
     ios,
     matches,
-    model: "claude-sonnet-5-5",
-    backend: "claude-code",
-    usage: { inputTokens: 1200, outputTokens: 300, costUsd: 1 },
-    generatedAt: "2026-10-02T12:00:00.000Z",
+    run: {
+      model: "claude-sonnet-5-5",
+      backend: "claude-code",
+      usage: { inputTokens: 1200, outputTokens: 300, costUsd: 1 },
+      generatedAt: "2026-10-02T12:00:00.000Z",
+    },
     ...overrides,
   });
 
@@ -96,9 +99,10 @@ describe("renderOverviewHtml", () => {
   it("shows run details when known and hides them when not", () => {
     expect(render()).toContain("Plan usage:");
     expect(render()).toContain("generated 2026-10-02T12:00:00.000Z");
-    const unknown = render({ model: "unknown", generatedAt: "unknown" });
-    expect(unknown).not.toContain("Plan usage:");
-    expect(unknown).not.toContain("generated unknown");
+    const old = render({ run: undefined });
+    expect(old).not.toContain("Plan usage:");
+    expect(old).not.toContain("generated");
+    expect(old).not.toContain("unknown");
   });
 });
 
@@ -112,6 +116,35 @@ describe("rerenderOverview", () => {
     const files = await rerenderOverview(root);
     expect(await readFile(files.html, "utf8")).toContain("<title>Feature overview · driftcheck</title>");
     expect(await readFile(files.report, "utf8")).toContain("# Feature overview");
+  });
+
+  it("leaves out run details for an inventory stored without them, and shows them when stored", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "driftcheck-rerender-"));
+    const paths = overviewPaths(root);
+    await mkdir(path.dirname(paths.inventory), { recursive: true });
+    await writeFile(paths.inventory, JSON.stringify({ android, ios, matches }));
+    const old = await readFile((await rerenderOverview(root)).report, "utf8");
+    expect(old).not.toContain("**Model:**");
+    expect(old).not.toContain("unknown");
+
+    const meta = { model: "claude-sonnet-5-5", backend: "api", usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.5 }, generatedAt: "2026-10-02T12:00:00.000Z" };
+    await writeFile(paths.inventory, JSON.stringify({ android, ios, matches, meta }));
+    const current = await readFile((await rerenderOverview(root)).report, "utf8");
+    expect(current).toContain("**Model:** `claude-sonnet-5-5`");
+    expect(current).toContain("**Estimated cost:** $0.50");
+  });
+
+  it("rejects a stored inventory with missing or invalid platforms, with a clear message", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "driftcheck-rerender-"));
+    const paths = overviewPaths(root);
+    await mkdir(path.dirname(paths.inventory), { recursive: true });
+
+    await writeFile(paths.inventory, JSON.stringify({ ios, matches }));
+    await expect(rerenderOverview(root)).rejects.toThrowError(/does not look like a driftcheck inventory \(android: .*Run "driftcheck overview" again/);
+
+    const broken = { ...android, features: [{ ...android.features[0], entryPoints: [{ file: "a.kt", line: 1, status: "maybe" }] }] };
+    await writeFile(paths.inventory, JSON.stringify({ android: broken, ios, matches }));
+    await expect(rerenderOverview(root)).rejects.toThrowError(ConfigError);
   });
 
   it("explains what to do when there is no inventory", async () => {

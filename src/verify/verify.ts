@@ -1,20 +1,7 @@
 import type { SourceReader } from "../io/fileReader.js";
-import type { Evidence, FeatureSpec, SpecItem } from "../model/spec.js";
+import type { Evidence, EvidenceStatus, FeatureSpec, SpecItem, VerifiedEvidence } from "../model/spec.js";
 
-export type EvidenceStatus =
-  /** File and line exist and the quote was found near the line. */
-  | "verified"
-  /** File and line exist, but no quote was given to check against. */
-  | "line_exists"
-  /** File and line exist, but the quote was not found near the line. */
-  | "quote_not_found"
-  | "line_out_of_range"
-  /** Missing, or outside the platform root. */
-  | "file_not_found";
-
-export interface VerifiedEvidence extends Evidence {
-  status: EvidenceStatus;
-}
+export type { EvidenceStatus, VerifiedEvidence };
 
 export interface VerifiedSpecItem extends Omit<SpecItem, "evidence"> {
   evidence: VerifiedEvidence[];
@@ -47,24 +34,33 @@ export function checkEvidence(fileText: string | null, evidence: Evidence): Evid
 }
 
 /**
+ * Many pieces of evidence cite the same file, so each file is read once. The promise is cached, not the
+ * text, so parallel checks of the same file share one read.
+ */
+export function cachedReader(reader: SourceReader): SourceReader {
+  const cache = new Map<string, Promise<string | null>>();
+  return {
+    read(file) {
+      let pending = cache.get(file);
+      if (!pending) {
+        pending = reader.read(file);
+        cache.set(file, pending);
+      }
+      return pending;
+    },
+  };
+}
+
+/**
  * Checks every piece of evidence against the actual source. This is the guard against
  * hallucinated file names, line numbers and values: reports show what was verified.
  */
 export async function verifySpec(spec: FeatureSpec, reader: SourceReader): Promise<VerifiedFeatureSpec> {
-  const cache = new Map<string, Promise<string | null>>();
-  const readCached = (file: string) => {
-    let pending = cache.get(file);
-    if (!pending) {
-      pending = reader.read(file);
-      cache.set(file, pending);
-    }
-    return pending;
-  };
-
+  const cached = cachedReader(reader);
   const items = await Promise.all(
     spec.items.map(async (item) => {
       const evidence = await Promise.all(
-        item.evidence.map(async (e) => ({ ...e, status: checkEvidence(await readCached(e.file), e) })),
+        item.evidence.map(async (e) => ({ ...e, status: checkEvidence(await cached.read(e.file), e) })),
       );
       return { ...item, evidence, verified: evidence.some((e) => e.status === "verified") };
     }),

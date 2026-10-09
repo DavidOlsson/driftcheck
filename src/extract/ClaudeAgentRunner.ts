@@ -1,8 +1,5 @@
 import { query, type Options, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { AgentError, type AgentRequest, type AgentResult, type AgentRunner } from "./AgentRunner.js";
-
-/** The only tools the agent ever gets: it can look at code but never change, run or send anything. */
-export const READ_ONLY_TOOLS = ["Read", "Grep", "Glob"];
+import { AgentError, READ_ONLY_TOOLS, type AgentRequest, type AgentResult, type AgentRunner } from "./AgentRunner.js";
 
 /** Pure, so the security-relevant options can be asserted in tests without calling the API. */
 export function buildAgentOptions(request: AgentRequest, clientApp: string): Options {
@@ -13,8 +10,8 @@ export function buildAgentOptions(request: AgentRequest, clientApp: string): Opt
     maxTurns: request.maxTurns,
     maxBudgetUsd: request.maxBudgetUsd,
     // `tools` limits what exists; `allowedTools` lets those run without a prompt
-    tools: READ_ONLY_TOOLS,
-    allowedTools: READ_ONLY_TOOLS,
+    tools: [...READ_ONLY_TOOLS],
+    allowedTools: [...READ_ONLY_TOOLS],
     permissionMode: "dontAsk",
     // Never load the analyzed repository's CLAUDE.md, settings or hooks: it must not be able to steer the agent
     settingSources: [],

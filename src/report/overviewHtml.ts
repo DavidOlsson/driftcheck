@@ -1,9 +1,10 @@
 import { stringify as toYaml } from "yaml";
 import { groupOf, type MatrixGroup } from "../inventory/presence.js";
 import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
-import type { FeatureMatch, PresenceCheck } from "../model/inventory.js";
-import { usageLabel } from "./markdown.js";
-import { hintsFor, type InventoryFeature, type OverviewReportInput } from "./overviewMarkdown.js";
+import type { FeatureMatch, PresenceCheck, RunDetails } from "../model/inventory.js";
+import { featuresById, groupMatches, suggestedComparisons, type FeaturesById, type InventoryFeature } from "./overviewData.js";
+import type { OverviewReportInput } from "./overviewMarkdown.js";
+import { tokenCounts, usageLabel } from "./shared.js";
 
 /** Everything in the report comes from model output or source code, so all of it is escaped. */
 export function esc(text: string): string {
@@ -45,7 +46,7 @@ function checkCell(check: PresenceCheck | undefined): string {
   }
 }
 
-function row(m: FeatureMatch, byId: { android: Map<string, InventoryFeature>; ios: Map<string, InventoryFeature> }): string {
+function row(m: FeatureMatch, byId: FeaturesById): string {
   const group = groupOf(m);
   const android = m.android ? featureCell(byId.android.get(m.android)) : checkCell(m.check);
   const ios = m.ios ? featureCell(byId.ios.get(m.ios)) : checkCell(m.check);
@@ -61,44 +62,37 @@ function row(m: FeatureMatch, byId: { android: Map<string, InventoryFeature>; io
 </tr>`;
 }
 
+function runDetailsHtml({ model, backend, usage }: RunDetails): string {
+  const usageText = usageLabel(backend, usage).replace(/\*\*/g, "");
+  return `Model: <code>${esc(model)}</code> via ${esc(BACKEND_DESCRIPTIONS[backend])} · Tokens: ${tokenCounts(usage)} · ${esc(usageText)}`;
+}
+
 export function renderOverviewHtml(input: OverviewReportInput): string {
-  const { android, ios, matches, model, backend, usage, generatedAt } = input;
-  const byId = {
-    android: new Map(android.features.map((f) => [f.id, f])),
-    ios: new Map(ios.features.map((f) => [f.id, f])),
-  };
-  const counts = Object.fromEntries(GROUPS.map(({ group }) => [group, matches.filter((m) => groupOf(m) === group).length])) as Record<
-    MatrixGroup,
-    number
-  >;
+  const { android, ios, matches, run } = input;
+  const byId = featuresById(android, ios);
+  const groups = groupMatches(matches);
   const verified = (inv: typeof android) => inv.features.filter((f) => f.verified).length;
 
   const cards = GROUPS.map(
     ({ group, title, hint }) =>
-      `<button class="card ${group}" data-filter="${group}" title="${esc(hint)}" aria-pressed="false"><span class="count">${counts[group]}</span><span class="label">${esc(title)}</span></button>`,
+      `<button class="card ${group}" data-filter="${group}" title="${esc(hint)}" aria-pressed="false"><span class="count">${groups[group].length}</span><span class="label">${esc(title)}</span></button>`,
   ).join("\n");
 
-  const sections = GROUPS.filter(({ group }) => counts[group] > 0)
+  const sections = GROUPS.filter(({ group }) => groups[group].length > 0)
     .map(
       ({ group, title, hint }) => `<section class="group" data-section="${group}">
-  <h2><span class="dot ${group}"></span>${esc(title)} <span class="muted">${counts[group]}</span></h2>
+  <h2><span class="dot ${group}"></span>${esc(title)} <span class="muted">${groups[group].length}</span></h2>
   <p class="hint">${esc(hint)}</p>
   <div class="table-wrap"><table>
     <thead><tr><th scope="col">Feature</th><th scope="col">Android</th><th scope="col">iOS</th><th scope="col">Notes</th></tr></thead>
-    <tbody>${matches.filter((m) => groupOf(m) === group).map((m) => row(m, byId)).join("\n")}</tbody>
+    <tbody>${groups[group].map((m) => row(m, byId)).join("\n")}</tbody>
   </table></div>
 </section>`,
     )
     .join("\n");
 
-  const suggested = matches.filter((m) => groupOf(m) === "both" && m.deepCompare && m.android && m.ios);
-  const yaml = toYaml({
-    features: suggested.map((m) => ({
-      id: m.id,
-      name: m.name,
-      hints: hintsFor(m.android ? byId.android.get(m.android) : undefined, m.ios ? byId.ios.get(m.ios) : undefined),
-    })),
-  }).trimEnd();
+  const suggested = suggestedComparisons(matches, byId);
+  const yaml = toYaml({ features: suggested }).trimEnd();
   const suggestions =
     suggested.length === 0
       ? ""
@@ -109,7 +103,6 @@ export function renderOverviewHtml(input: OverviewReportInput): string {
   <div class="code"><button class="copy" type="button">Copy</button><pre><code>${esc(yaml)}</code></pre></div>
 </section>`;
 
-  const usageText = usageLabel(backend, usage).replace(/\*\*/g, "");
 
   return `<!doctype html>
 <html lang="en">
@@ -195,7 +188,7 @@ tr.hidden, section.hidden { display: none !important; }
 <main>
 <header>
   <h1>Feature overview</h1>
-  <div class="muted">Android vs iOS${generatedAt === "unknown" ? "" : ` · generated ${esc(generatedAt)}`} by driftcheck</div>
+  <div class="muted">Android vs iOS${run ? ` · generated ${esc(run.generatedAt)}` : ""} by driftcheck</div>
 </header>
 
 <div class="summaries">
@@ -221,7 +214,7 @@ ${suggestions}
     <li>Android: ${android.features.length} features, ${verified(android)} with an entry point verified against the source.</li>
     <li>iOS: ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source.</li>
     <li>Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.</li>
-${model === "unknown" ? "" : `    <li>Model: <code>${esc(model)}</code> via ${esc(BACKEND_DESCRIPTIONS[backend])} · Tokens: ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${esc(usageText)}</li>`}
+${run ? `    <li>${runDetailsHtml(run)}</li>` : ""}
   </ul>
 </footer>
 </main>

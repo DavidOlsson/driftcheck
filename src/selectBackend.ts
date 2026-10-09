@@ -2,7 +2,6 @@ import { ConfigError } from "./config/config.js";
 import { CLAUDE_COMMAND } from "./extract/claudeCli.js";
 import { CommandNotFoundError, type CommandRunner } from "./io/process.js";
 
-export { BACKENDS, BACKEND_DESCRIPTIONS, type Backend, type BackendChoice } from "./model/backend.js";
 import type { Backend, BackendChoice } from "./model/backend.js";
 
 export async function isClaudeCodeInstalled(commands: CommandRunner): Promise<boolean> {

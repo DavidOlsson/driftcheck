@@ -1,4 +1,10 @@
 /**
+ * The only tools an agent ever gets, on every backend: it can look at code but never change, run or send anything.
+ * Defined once so the API and Claude Code backends cannot drift apart.
+ */
+export const READ_ONLY_TOOLS = ["Read", "Grep", "Glob"] as const;
+
+/**
  * Runs an agent that explores one platform's source tree read-only and returns structured output.
  * Behind an interface so everything above it can be tested without the real API (see CLAUDE.md).
  */

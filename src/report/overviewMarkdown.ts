@@ -1,26 +1,15 @@
 import { stringify as toYaml } from "yaml";
-import type { Usage } from "../extract/AgentRunner.js";
-import type { VerifiedInventory } from "../inventory/inventory.js";
-import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
-import { groupOf, type MatrixGroup } from "../inventory/presence.js";
-import type { FeatureMatch, PresenceCheck } from "../model/inventory.js";
-import { usageLabel } from "./markdown.js";
+import type { FeatureMatch, PresenceCheck, RunDetails, VerifiedInventory } from "../model/inventory.js";
+import { featuresById, groupMatches, suggestedComparisons, type InventoryFeature } from "./overviewData.js";
+import { cell, runDetailsLine } from "./shared.js";
 
 export interface OverviewReportInput {
   android: VerifiedInventory;
   ios: VerifiedInventory;
   matches: FeatureMatch[];
-  model: string;
-  backend: Backend;
-  usage: Usage;
-  generatedAt: string;
+  /** Missing for inventories stored before run details were recorded. */
+  run?: RunDetails;
 }
-
-function cell(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
-}
-
-export type InventoryFeature = VerifiedInventory["features"][number];
 
 function side(feature: InventoryFeature | undefined): string {
   if (!feature) return "—";
@@ -46,28 +35,10 @@ function checkedSide(check: PresenceCheck | undefined): string {
   }
 }
 
-/** File names without folders or extensions make good hints for the agent in `compare`. */
-export function hintsFor(...features: (InventoryFeature | undefined)[]): string[] {
-  const names = features.flatMap((f) => [...(f?.entryPoints.map((e) => e.file) ?? []), ...(f?.files ?? [])]);
-  const base = names.map((n) => n.split("/").pop()!.replace(/\.[a-z]+$/i, "")).filter(Boolean);
-  return [...new Set(base)].slice(0, 6);
-}
-
 export function renderOverviewReport(input: OverviewReportInput): string {
-  const { android, ios, matches, model, backend, usage, generatedAt } = input;
-  const byId = {
-    android: new Map(android.features.map((f) => [f.id, f])),
-    ios: new Map(ios.features.map((f) => [f.id, f])),
-  };
-  const groups: Record<MatrixGroup, FeatureMatch[]> = {
-    both: [],
-    different_structure: [],
-    android_only: [],
-    ios_only: [],
-    uncertain: [],
-  };
-  for (const m of matches) groups[groupOf(m)].push(m);
-  const both = groups.both;
+  const { android, ios, matches, run } = input;
+  const byId = featuresById(android, ios);
+  const groups = groupMatches(matches);
 
   const out: string[] = [];
   out.push(`# Feature overview`, "");
@@ -102,15 +73,10 @@ export function renderOverviewReport(input: OverviewReportInput): string {
   table("🔵 iOS only", "The Android app was searched for these and nothing serving the same purpose was found.", groups.ios_only);
   table("❓ Uncertain", "Not checked, or found only with evidence that did not verify. Check by hand.", groups.uncertain);
 
-  const suggested = both.filter((m) => m.deepCompare && m.android && m.ios);
-  if (suggested.length > 0) {
+  const features = suggestedComparisons(matches, byId);
+  if (features.length > 0) {
     out.push(`## 🔍 Suggested deep comparisons`, "");
     out.push("These shared features are the most likely to differ in ways users notice. Add them to `.driftcheck/config.yml` and run `driftcheck compare <id>`:", "");
-    const features = suggested.map((m) => ({
-      id: m.id,
-      name: m.name,
-      hints: hintsFor(m.android ? byId.android.get(m.android) : undefined, m.ios ? byId.ios.get(m.ios) : undefined),
-    }));
     out.push("```yaml", toYaml({ features }).trimEnd(), "```", "");
   }
 
@@ -121,13 +87,7 @@ export function renderOverviewReport(input: OverviewReportInput): string {
     `- **iOS:** ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source`,
     `- Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.`,
   );
-  // Inventories stored before run details were recorded have no model, usage or date to show
-  if (model !== "unknown") {
-    out.push(
-      `- **Model:** \`${model}\` via ${BACKEND_DESCRIPTIONS[backend]} · **Tokens:** ${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out · ${usageLabel(backend, usage)}`,
-      `- **Generated:** ${generatedAt} by driftcheck`,
-    );
-  }
+  if (run) out.push(runDetailsLine(run.model, run.backend, run.usage), `- **Generated:** ${run.generatedAt} by driftcheck`);
   out.push("");
   return out.join("\n");
 }

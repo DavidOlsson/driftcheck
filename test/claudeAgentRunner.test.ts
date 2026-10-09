@@ -1,7 +1,7 @@
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
-import { AgentError, type AgentRequest } from "../src/extract/AgentRunner.js";
-import { buildAgentOptions, READ_ONLY_TOOLS, toAgentResult } from "../src/extract/ClaudeAgentRunner.js";
+import { AgentError, READ_ONLY_TOOLS, type AgentRequest } from "../src/extract/AgentRunner.js";
+import { buildAgentOptions, toAgentResult } from "../src/extract/ClaudeAgentRunner.js";
 
 const request: AgentRequest = {
   cwd: "/repo/android",

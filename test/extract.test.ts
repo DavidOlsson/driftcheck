@@ -76,6 +76,17 @@ describe("extractFeature", () => {
     await expect(extractFeature(runner, config, feature, "android")).rejects.toThrowError(AgentError);
   });
 
+  it("keeps the usage of a run whose output is rejected, so its cost is still reported", async () => {
+    const bad = { ...validSpec(), items: "not a list" };
+    const schemaError = await extractFeature(new FakeAgentRunner(() => bad), config, feature, "android").catch((e: unknown) => e);
+    expect((schemaError as AgentError).usage.costUsd).toBe(0.01);
+
+    const wrongFeature = await extractFeature(new FakeAgentRunner(() => validSpec("android", "login")), config, feature, "android").catch(
+      (e: unknown) => e,
+    );
+    expect((wrongFeature as AgentError).usage.costUsd).toBe(0.01);
+  });
+
   it("rejects a description of the wrong feature or platform", async () => {
     await expect(
       extractFeature(new FakeAgentRunner(() => validSpec("ios")), config, feature, "android"),

@@ -2,10 +2,11 @@ import type { Config } from "../config/config.js";
 import { AgentError, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
 import type { SourceReader } from "../io/fileReader.js";
 import type { LlmClient } from "../llm/LlmClient.js";
-import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow } from "../model/inventory.js";
+import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow, type VerifiedInventory } from "../model/inventory.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { Platform } from "../model/spec.js";
-import { checkEvidence, type VerifiedEvidence } from "../verify/verify.js";
+import { runStructuredAgent } from "../extract/structured.js";
+import { cachedReader, checkEvidence } from "../verify/verify.js";
 
 export const INVENTORY_JSON_SCHEMA = toOutputJsonSchema(FeatureInventory);
 
@@ -46,11 +47,10 @@ iOS features:
 ${JSON.stringify(list(ios), null, 2)}`;
 }
 
-export interface VerifiedInventory extends Omit<FeatureInventory, "features"> {
-  features: (FeatureInventory["features"][number] & { entryPoints: VerifiedEvidence[]; verified: boolean })[];
-}
+export type { VerifiedInventory };
 
-export async function verifyInventory(inventory: FeatureInventory, reader: SourceReader): Promise<VerifiedInventory> {
+export async function verifyInventory(inventory: FeatureInventory, source: SourceReader): Promise<VerifiedInventory> {
+  const reader = cachedReader(source);
   const features = await Promise.all(
     inventory.features.map(async (f) => {
       const entryPoints = await Promise.all(
@@ -67,27 +67,20 @@ export async function extractInventory(
   config: Config,
   platform: Platform,
 ): Promise<{ inventory: FeatureInventory; usage: Usage }> {
-  const result = await runner.run({
-    cwd: config.platforms[platform],
+  const { output: inventory, usage } = await runStructuredAgent(runner, config, platform, {
     systemPrompt: INVENTORY_SYSTEM_PROMPT,
     prompt: inventoryPrompt(platform),
+    schema: FeatureInventory,
     outputSchema: INVENTORY_JSON_SCHEMA,
-    model: config.model,
-    maxTurns: config.maxTurns,
-    maxBudgetUsd: config.maxBudgetUsd,
+    label: "inventory",
   });
-  const parsed = FeatureInventory.safeParse(result.output);
-  if (!parsed.success) {
-    const problems = parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new AgentError(`The ${platform} agent returned an inventory that does not match the schema (${problems})`, result.usage);
-  }
-  if (parsed.data.platform !== platform) {
-    throw new AgentError(`The ${platform} agent returned an inventory for ${parsed.data.platform}`, result.usage);
+  if (inventory.platform !== platform) {
+    throw new AgentError(`The ${platform} agent returned an inventory for ${inventory.platform}`, usage);
   }
   // Duplicate ids would make matching ambiguous; keep the first occurrence
   const seen = new Set<string>();
-  const features = parsed.data.features.filter((f) => !seen.has(f.id) && seen.add(f.id));
-  return { inventory: { ...parsed.data, features }, usage: result.usage };
+  const features = inventory.features.filter((f) => !seen.has(f.id) && seen.add(f.id));
+  return { inventory: { ...inventory, features }, usage };
 }
 
 /**
@@ -139,6 +132,7 @@ export async function matchInventories(
     prompt: matchPrompt(android, ios),
     schema: MatchOutput,
     maxTokens: 16_000,
+    task: "feature matching",
   });
   return { matches: completeMatches(MatchOutput.parse(output).matches, android, ios), usage };
 }

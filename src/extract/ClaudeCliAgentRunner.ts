@@ -1,6 +1,6 @@
 import type { CommandRunner } from "../io/process.js";
 import type { AgentRequest, AgentResult, AgentRunner } from "./AgentRunner.js";
-import { READ_ONLY_TOOLS, runClaudeCli } from "./claudeCli.js";
+import { READ_ONLY_TOOLS_ARG, runClaudeCli } from "./claudeCli.js";
 
 /**
  * Runs the read-only agent through the user's Claude Code CLI, so it uses their Claude subscription.
@@ -17,7 +17,7 @@ export class ClaudeCliAgentRunner implements AgentRunner {
       jsonSchema: request.outputSchema,
       model: request.model,
       maxBudgetUsd: request.maxBudgetUsd,
-      tools: READ_ONLY_TOOLS,
+      tools: READ_ONLY_TOOLS_ARG,
     });
   }
 }

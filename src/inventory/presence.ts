@@ -1,10 +1,11 @@
 import type { Config } from "../config/config.js";
-import { AgentError, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
+import type { AgentRunner, Usage } from "../extract/AgentRunner.js";
+import { runStructuredAgent } from "../extract/structured.js";
 import type { SourceReader } from "../io/fileReader.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import { PresenceOutput, type FeatureMatch, type PresenceAnswer, type PresenceCheck } from "../model/inventory.js";
 import type { Platform } from "../model/spec.js";
-import { checkEvidence } from "../verify/verify.js";
+import { cachedReader, checkEvidence } from "../verify/verify.js";
 
 /**
  * Inventories made by two separate agents differ in granularity, so "only on Android" often means
@@ -49,7 +50,8 @@ export function candidatesFor(
 }
 
 /** Claims of presence must be backed by verified evidence; otherwise they are only "unverified". */
-export async function toChecks(platform: Platform, answers: PresenceAnswer[], reader: SourceReader): Promise<Map<string, PresenceCheck>> {
+export async function toChecks(platform: Platform, answers: PresenceAnswer[], source: SourceReader): Promise<Map<string, PresenceCheck>> {
+  const reader = cachedReader(source);
   const checks = new Map<string, PresenceCheck>();
   for (const answer of answers) {
     if (checks.has(answer.rowId)) continue;
@@ -70,22 +72,16 @@ export async function runPresenceCheck(
   candidates: PresenceCandidate[],
   reader: SourceReader,
 ): Promise<{ checks: Map<string, PresenceCheck>; usage: Usage }> {
-  const result = await runner.run({
-    cwd: config.platforms[platform],
+  const { output, usage } = await runStructuredAgent(runner, config, platform, {
     systemPrompt: PRESENCE_SYSTEM_PROMPT,
     prompt: presencePrompt(platform, candidates),
+    schema: PresenceOutput,
     outputSchema: PRESENCE_JSON_SCHEMA,
-    model: config.model,
-    maxTurns: config.maxTurns,
-    maxBudgetUsd: config.maxBudgetUsd,
+    label: "presence check",
   });
-  const parsed = PresenceOutput.safeParse(result.output);
-  if (!parsed.success) {
-    throw new AgentError(`The ${platform} presence check returned output that does not match the schema`, result.usage);
-  }
   const known = new Set(candidates.map((c) => c.rowId));
-  const answers = parsed.data.answers.filter((a) => known.has(a.rowId));
-  return { checks: await toChecks(platform, answers, reader), usage: result.usage };
+  const answers = output.answers.filter((a) => known.has(a.rowId));
+  return { checks: await toChecks(platform, answers, reader), usage };
 }
 
 /** Attaches checks to their rows. A row without an answer keeps no check and stays "not checked". */

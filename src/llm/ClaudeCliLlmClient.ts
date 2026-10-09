@@ -25,7 +25,7 @@ export class ClaudeCliLlmClient implements LlmClient {
     });
     const parsed = request.schema.safeParse(output);
     if (!parsed.success) {
-      throw new AgentError("The comparison did not return output matching the expected schema.", usage);
+      throw new AgentError(`The ${request.task} did not return output matching the expected schema.`, usage);
     }
     return { output: parsed.data, usage };
   }
