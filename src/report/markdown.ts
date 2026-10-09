@@ -3,7 +3,7 @@ import type { Usage } from "../extract/AgentRunner.js";
 import type { FindingCategory, VerifiedFinding, VerifiedPlatformSide } from "../model/finding.js";
 import type { Platform } from "../model/spec.js";
 import { summarizeVerification, type VerifiedFeatureSpec } from "../verify/verify.js";
-import { cell, runDetailsLine } from "./shared.js";
+import { cell, mdText, runDetailsLine } from "./shared.js";
 
 export interface CompareReportInput {
   featureName: string;
@@ -31,7 +31,7 @@ const UNVERIFIED_MARK = "⚠️";
 function side(s: VerifiedPlatformSide | null): string {
   if (!s) return "—";
   const refs = s.evidence.map((e) => `\`${e.file}:${e.line}\`${e.status === "verified" ? "" : ` ${UNVERIFIED_MARK}`}`).join(", ");
-  return cell(refs ? `${s.summary} (${refs})` : s.summary);
+  return cell(refs ? `${mdText(s.summary)} (${refs})` : mdText(s.summary));
 }
 
 function verificationLine(platform: Platform, spec: VerifiedFeatureSpec): string {
@@ -49,7 +49,7 @@ function findingEvidenceLines(findings: VerifiedFinding[]): string[] {
   }
   const unsourced = findings.filter((f) => (f.android?.evidence.length ?? 0) + (f.ios?.evidence.length ?? 0) === 0);
   if (unsourced.length > 0) {
-    lines.push(`- ${UNVERIFIED_MARK} **Findings without a source reference:** ${unsourced.map((f) => cell(f.title)).join("; ")}`);
+    lines.push(`- ${UNVERIFIED_MARK} **Findings without a source reference:** ${unsourced.map((f) => cell(mdText(f.title))).join("; ")}`);
   }
   return lines;
 }
@@ -59,9 +59,9 @@ export function renderCompareReport(input: CompareReportInput): string {
   const count = (c: FindingCategory) => findings.filter((f) => f.category === c).length;
 
   const out: string[] = [];
-  out.push(`# Parity report: ${featureName}`, "");
+  out.push(`# Parity report: ${mdText(featureName)}`, "");
   out.push(`| | Android | iOS |`, `|---|---|---|`);
-  out.push(`| Summary | ${cell(android.summary)} | ${cell(ios.summary)} |`, "");
+  out.push(`| Summary | ${cell(mdText(android.summary))} | ${cell(mdText(ios.summary))} |`, "");
 
   out.push(`## Summary`, "", `| Category | Count |`, `|---|---|`);
   for (const { category, title } of SECTIONS) out.push(`| ${title} | ${count(category)} |`);
@@ -72,7 +72,7 @@ export function renderCompareReport(input: CompareReportInput): string {
     if (items.length === 0) continue;
     out.push(`## ${title}`, "", `| # | Severity | Finding | Android | iOS |`, `|---|---|---|---|---|`);
     items.forEach((f, i) => {
-      out.push(`| ${i + 1} | ${f.severity} | ${cell(f.title)} | ${side(f.android)} | ${side(f.ios)} |`);
+      out.push(`| ${i + 1} | ${f.severity} | ${cell(mdText(f.title))} | ${side(f.android)} | ${side(f.ios)} |`);
     });
     out.push("");
   }
@@ -80,7 +80,7 @@ export function renderCompareReport(input: CompareReportInput): string {
   const questions = findings.filter((f) => f.question);
   if (questions.length > 0) {
     out.push(`## Questions for the team`, "");
-    questions.forEach((f, i) => out.push(`${i + 1}. ${f.question}`));
+    questions.forEach((f, i) => out.push(`${i + 1}. ${mdText(f.question ?? "")}`));
     out.push("");
   }
 
@@ -93,7 +93,7 @@ export function renderCompareReport(input: CompareReportInput): string {
     }
   }
   const notFound = [...android.notFound.map((n) => `Android: ${n}`), ...ios.notFound.map((n) => `iOS: ${n}`)];
-  if (notFound.length > 0) out.push(`- **Looked for but not found:** ${notFound.map(cell).join("; ")}`);
+  if (notFound.length > 0) out.push(`- **Looked for but not found:** ${notFound.map((n) => cell(mdText(n))).join("; ")}`);
   out.push(
     runDetailsLine(model, backend, usage),
     `- **Generated:** ${generatedAt} by driftcheck`,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VerifiedInventory } from "../src/inventory/inventory.js";
 import type { FeatureMatch } from "../src/model/inventory.js";
 import { featuresById, groupMatches, hintsFor, suggestedComparisons } from "../src/report/overviewData.js";
-import { cell, runDetailsLine } from "../src/report/shared.js";
+import { cell, mdText, runDetailsLine } from "../src/report/shared.js";
 
 const feature = (id: string, file: string) => ({
   id,
@@ -53,6 +53,10 @@ describe("suggestedComparisons", () => {
 describe("shared Markdown helpers", () => {
   it("keeps table cells on one line without breaking the table", () => {
     expect(cell("a | b\nc")).toBe("a \\| b c");
+  });
+
+  it("escapes HTML, link brackets and backslashes in untrusted text but keeps code spans", () => {
+    expect(mdText("<b>x</b> [a](u) \\ `code`\n  next")).toBe("&lt;b>x&lt;/b> \\[a\\](u) \\\\ `code` next");
   });
 
   it("describes how a run was made", () => {

@@ -6,6 +6,21 @@ export function cell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
+/**
+ * Text from the model, the analyzed code or its config, made inert for Markdown. Reports may be posted as
+ * pull request comments, where raw HTML, links and images (which load a URL when viewed, and can leak
+ * data through it) must not come from untrusted text. Line breaks become spaces, so the text cannot
+ * start headings or list items either. Light formatting such as backticks and emphasis is kept.
+ */
+export function mdText(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/[[\]]/g, (c) => `\\${c}`)
+    // Only "<" can open HTML; ">" is harmless once line breaks are gone, and stays readable
+    .replace(/</g, "&lt;")
+    .replace(/\s*\r?\n\s*/g, " ");
+}
+
 export function tokenCounts(usage: Usage): string {
   return `${usage.inputTokens.toLocaleString("en")} in, ${usage.outputTokens.toLocaleString("en")} out`;
 }

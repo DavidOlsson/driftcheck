@@ -4,7 +4,6 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { initProject, validateProject } from "../src/commands/project.js";
 import { overviewPaths, runOverview } from "../src/commands/overviewCommand.js";
-import { maxCostUsd } from "../src/commands/perPlatform.js";
 import { AgentError, type AgentRequest } from "../src/extract/AgentRunner.js";
 import {
   completeMatches,
@@ -222,7 +221,7 @@ describe("runOverview", () => {
     expect(stored.android.features[0].verified).toBe(true);
     expect(stored.matches[0].id).toBe("search");
     expect(await readFile(result.reportFile, "utf8")).toContain("# Feature overview");
-    expect(logs[0]).toContain(`at most about $${maxCostUsd(config).toFixed(2)}`);
+    expect(logs[0]).toContain("at most about $8.50");
     expect(logs.some((l) => l.includes("android: 3 features, 1 with a verified entry point"))).toBe(true);
   });
 
@@ -243,6 +242,17 @@ describe("runOverview", () => {
     expect(result.matches.find((m) => m.id === "voice")?.check).toBeUndefined();
     // Two inventories and one presence check at 0.01 each, matching at 0.004, and the failed check's 0.5
     expect(result.usage.costUsd).toBeCloseTo(0.534);
+  });
+
+  it("does not hide bugs in a presence check as an uncertain result", async () => {
+    const config = await validateProject(root);
+    const bug = new TypeError("cannot read properties of undefined");
+    const runner = new FakeAgentRunner((r: AgentRequest) => {
+      if (r.systemPrompt === PRESENCE_SYSTEM_PROMPT) throw bug;
+      return r.cwd.endsWith("android") ? androidInventory : iosInventory;
+    });
+    const llm = new FakeLlmClient(() => ({ matches: [match({ id: "search", name: "Search", android: "search", ios: "find" })] }));
+    await expect(runOverview(config, { backend: "api", runner, llm, now: () => new Date(), log: () => {} })).rejects.toBe(bug);
   });
 });
 

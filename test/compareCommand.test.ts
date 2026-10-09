@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { runCompare } from "../src/commands/compareCommand.js";
-import { maxCostUsd } from "../src/commands/perPlatform.js";
 import { initProject, validateProject } from "../src/commands/project.js";
 import { AgentError, type AgentRequest } from "../src/extract/AgentRunner.js";
 import { FakeAgentRunner } from "./fakes/FakeAgentRunner.js";
@@ -67,7 +66,7 @@ describe("runCompare", () => {
     expect(report).toContain("| 1 | high | Different debounce | 200 ms (`Search.kt:2`) | 100 ms (`Search.swift:2`) |");
     // Two agent runs (0.01 each) plus the comparison (0.004)
     expect(result.usage.costUsd).toBeCloseTo(0.024);
-    expect(logs[0]).toContain(`at most about $${maxCostUsd(config).toFixed(2)}`);
+    expect(logs[0]).toContain("at most about $4.50");
     expect(logs.some((l) => l.includes("android: 1 items, 1 verified"))).toBe(true);
   });
 
@@ -92,6 +91,33 @@ describe("runCompare", () => {
     };
     // Two agent runs at 0.01 each; the failed call itself was not billed
     await expect(runCompare(config, "search", d)).rejects.toThrowError(/rate limit was reached\. \(this run cost about \$0\.02\)$/);
+  });
+
+  it("leaves the stored results untouched unless the whole run succeeds", async () => {
+    const config = await validateProject(root);
+    const stored = path.join(root, ".driftcheck/specs/search");
+    await mkdir(stored, { recursive: true });
+    await writeFile(path.join(stored, "android.json"), "old android");
+    await writeFile(path.join(stored, "ios.json"), "old ios");
+
+    // iOS fails after Android succeeded
+    const iosFails = new FakeAgentRunner((request) => {
+      if (request.cwd.endsWith("ios")) throw new AgentError("budget reached");
+      return agentOutput(request);
+    });
+    await expect(runCompare(config, "search", deps(iosFails))).rejects.toThrowError(AgentError);
+    expect(await readFile(path.join(stored, "android.json"), "utf8")).toBe("old android");
+
+    // Both platforms succeed, but the comparison fails
+    const compareFails = {
+      ...deps(new FakeAgentRunner(agentOutput)),
+      llm: new FakeLlmClient(() => {
+        throw new AgentError("rate limit");
+      }),
+    };
+    await expect(runCompare(config, "search", compareFails)).rejects.toThrowError(AgentError);
+    expect(await readFile(path.join(stored, "android.json"), "utf8")).toBe("old android");
+    expect(await readFile(path.join(stored, "ios.json"), "utf8")).toBe("old ios");
   });
 
   it("fails fast on an unknown feature without calling the agent", async () => {

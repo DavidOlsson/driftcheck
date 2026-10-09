@@ -79,7 +79,7 @@ Anthropic's terms do not allow third-party tools to offer Claude subscription lo
 - **Locally:** set `ANTHROPIC_API_KEY` in your shell.
 - **In CI:** store one key per project as a secret (GitHub Actions secrets, Bitbucket secured repository variables). Developers do not need their own keys. A dedicated key in its own Anthropic workspace with a spend limit makes the cost visible and bounded.
 
-**Cost and limits:** every agent run is capped by `maxBudgetUsd` (default 2 USD).
+**Cost and limits:** every agent run is capped by `maxBudgetUsd` (default 2 USD). `compare` makes two agent runs and `overview` up to four, plus one call without tools; the upper bound is shown before each API run.
 - With an API key, each run reports its estimated cost.
 - With Claude Code, runs count toward your subscription's limits instead of being billed per token, so driftcheck shows how much of your **5-hour window** and **weekly limit** is used (when Claude Code reports it) instead of a dollar amount.
 
