@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { AgentError, type Usage } from "../extract/AgentRunner.js";
+import { fromApiError } from "./apiErrors.js";
 import { estimateCostUsd } from "./pricing.js";
 
 /** A single model call without tools that must return JSON matching a schema. */
@@ -26,16 +27,20 @@ export class AnthropicLlmClient implements LlmClient {
   constructor(private readonly client: Anthropic = new Anthropic()) {}
 
   async parse<T>(request: LlmRequest<T>): Promise<{ output: T; usage: Usage }> {
-    const response = await this.client.beta.messages.parse({
-      model: request.model,
-      max_tokens: request.maxTokens,
-      system: request.system,
-      messages: [{ role: "user", content: request.prompt }],
-      output_config: { format: betaZodOutputFormat(request.schema) },
-      // If the model declines, let the API retry on a suitable fallback model instead of failing the run
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-    });
+    const response = await this.client.beta.messages
+      .parse({
+        model: request.model,
+        max_tokens: request.maxTokens,
+        system: request.system,
+        messages: [{ role: "user", content: request.prompt }],
+        output_config: { format: betaZodOutputFormat(request.schema) },
+        // If the model declines, let the API retry on a suitable fallback model instead of failing the run
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+      })
+      .catch((e: unknown) => {
+        throw fromApiError(e, request.task, request.model);
+      });
 
     // A failed call was still billed, so every error below carries the usage
     const { input_tokens, output_tokens } = response.usage;

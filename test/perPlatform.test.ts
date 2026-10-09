@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apiCost, maxCostUsd, runPerPlatform } from "../src/commands/perPlatform.js";
+import { afterPaidRuns, apiCost, maxCostUsd, runPerPlatform } from "../src/commands/perPlatform.js";
 import { parseConfig } from "../src/config/config.js";
 import { AgentError } from "../src/extract/AgentRunner.js";
 
@@ -34,6 +34,33 @@ describe("runPerPlatform", () => {
   it("rethrows unexpected errors unchanged", async () => {
     const bug = new TypeError("not an agent problem");
     await expect(runPerPlatform("api", async () => Promise.reject(bug))).rejects.toBe(bug);
+  });
+});
+
+describe("afterPaidRuns", () => {
+  it("returns the step's result", async () => {
+    expect(await afterPaidRuns("api", usage(1), async () => "done")).toBe("done");
+  });
+
+  it("adds what earlier runs cost to a failed step's error", async () => {
+    const cause = new Error("429");
+    const step = async () => {
+      throw new AgentError("The comparison failed: rate limited", usage(0.01), { cause });
+    };
+    const error = await afterPaidRuns("api", usage(1.5), step).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AgentError);
+    expect((error as AgentError).message).toBe("The comparison failed: rate limited (this run cost about $1.51)");
+    expect((error as AgentError).usage).toEqual({ inputTokens: 20, outputTokens: 10, costUsd: 1.51 });
+    expect((error as AgentError).cause).toBe(cause);
+  });
+
+  it("leaves dollars out on a subscription and rethrows unexpected errors unchanged", async () => {
+    const failing = async () => {
+      throw new AgentError("limit reached", usage(0));
+    };
+    await expect(afterPaidRuns("claude-code", usage(1), failing)).rejects.toThrowError(/^limit reached$/);
+    const bug = new TypeError("bug");
+    await expect(afterPaidRuns("api", usage(1), () => Promise.reject(bug))).rejects.toBe(bug);
   });
 });
 

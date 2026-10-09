@@ -1,7 +1,7 @@
-import type { HookInput, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { HookInput, query, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
 import { AgentError, READ_ONLY_TOOLS, type AgentRequest } from "../src/extract/AgentRunner.js";
-import { buildAgentOptions, toAgentResult } from "../src/extract/ClaudeAgentRunner.js";
+import { buildAgentOptions, ClaudeAgentRunner, toAgentResult } from "../src/extract/ClaudeAgentRunner.js";
 
 const request: AgentRequest = {
   cwd: "/repo/android",
@@ -90,5 +90,40 @@ describe("toAgentResult", () => {
     expect(() => toAgentResult(apiError, "/repo")).toThrowError(/failed: overloaded/);
     const empty = { ...baseResult, subtype: "success", result: "done" } as SDKResultMessage;
     expect(() => toAgentResult(empty, "/repo")).toThrowError(/without structured output/);
+  });
+});
+
+/** Stands in for the SDK's query(): yields the given messages, then optionally throws. */
+const fakeQuery = (messages: unknown[], failure?: Error) =>
+  (() =>
+    (async function* () {
+      yield* messages;
+      if (failure) throw failure;
+    })()) as unknown as typeof query;
+
+describe("ClaudeAgentRunner", () => {
+  const success = { ...baseResult, subtype: "success", result: "", structured_output: { ok: true } };
+
+  it("returns the result message's structured output", async () => {
+    const runner = new ClaudeAgentRunner("driftcheck/test", fakeQuery([{ type: "system" }, success]));
+    expect((await runner.run(request)).output).toEqual({ ok: true });
+  });
+
+  it("turns a crashed agent process into an AgentError that says what to check", async () => {
+    const crash = new Error("Claude Code process exited with code 1");
+    const runner = new ClaudeAgentRunner("driftcheck/test", fakeQuery([], crash));
+    const error = await runner.run(request).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AgentError);
+    expect((error as AgentError).message).toBe(
+      "The agent in /repo/android could not run: Claude Code process exited with code 1. Check that ANTHROPIC_API_KEY is valid and try again.",
+    );
+    expect((error as AgentError).cause).toBe(crash);
+    expect((error as AgentError).usage.costUsd).toBe(0);
+  });
+
+  it("keeps the cost of a result that arrived before the crash", async () => {
+    const runner = new ClaudeAgentRunner("driftcheck/test", fakeQuery([success], new Error("exited")));
+    const error = await runner.run(request).catch((e: unknown) => e);
+    expect((error as AgentError).usage).toEqual({ inputTokens: 1050, outputTokens: 210, costUsd: 0.42 });
   });
 });

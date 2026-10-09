@@ -82,6 +82,18 @@ describe("runCompare", () => {
     expect((d.llm as FakeLlmClient).requests).toHaveLength(0);
   });
 
+  it("reports what the agent runs cost when the comparison step fails", async () => {
+    const config = await validateProject(root);
+    const d = {
+      ...deps(new FakeAgentRunner(agentOutput)),
+      llm: new FakeLlmClient(() => {
+        throw new AgentError("The comparison failed: the API rate limit was reached.");
+      }),
+    };
+    // Two agent runs at 0.01 each; the failed call itself was not billed
+    await expect(runCompare(config, "search", d)).rejects.toThrowError(/rate limit was reached\. \(this run cost about \$0\.02\)$/);
+  });
+
   it("fails fast on an unknown feature without calling the agent", async () => {
     const config = await validateProject(root);
     const runner = new FakeAgentRunner(agentOutput);

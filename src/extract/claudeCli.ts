@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AgentError, READ_ONLY_TOOLS, type PlanUsage, type PlanWindow, type Usage } from "./AgentRunner.js";
-import type { CommandRunner } from "../io/process.js";
+import { CommandNotFoundError, CommandTimeoutError, type CommandRunner } from "../io/process.js";
 
 /**
  * Shared plumbing for running the user's installed Claude Code CLI in headless mode (`claude -p`).
@@ -23,7 +23,15 @@ export interface CliRunOptions {
   maxBudgetUsd: number;
   /** Comma-separated built-in tools, or "" for none. */
   tools: string;
+  /** Wall-clock limit for the whole run; the budget limit does not help when the CLI hangs. */
+  timeoutMs: number;
 }
+
+/** Agent runs read a lot of code; a healthy one finishes well within this. */
+export const AGENT_TIMEOUT_MS = 30 * 60_000;
+
+/** A single tool-less call. */
+export const TOOLLESS_TIMEOUT_MS = 10 * 60_000;
 
 /** Pure, so every security-relevant flag can be asserted in tests. */
 export function buildCliArgs(options: CliRunOptions): string[] {
@@ -174,10 +182,36 @@ export function parseCliOutput(stdout: string, stderr: string, exitCode: number,
 }
 
 export async function runClaudeCli(runner: CommandRunner, options: CliRunOptions): Promise<{ output: unknown; usage: Usage }> {
-  const result = await runner.run(CLAUDE_COMMAND, buildCliArgs(options), {
-    cwd: options.cwd,
-    input: options.prompt,
-    env: cliEnv(process.env),
-  });
+  const result = await runner
+    .run(CLAUDE_COMMAND, buildCliArgs(options), {
+      cwd: options.cwd,
+      input: options.prompt,
+      env: cliEnv(process.env),
+      timeoutMs: options.timeoutMs,
+    })
+    .catch((e: unknown) => {
+      throw fromCommandError(e, options.cwd);
+    });
   return parseCliOutput(result.stdout, result.stderr, result.exitCode, options.cwd);
+}
+
+/** Problems starting or finishing the CLI get a next step; anything else is a bug and passes through unchanged. */
+export function fromCommandError(error: unknown, cwd: string): unknown {
+  if (error instanceof CommandTimeoutError) {
+    const minutes = Math.round(error.timeoutMs / 60_000);
+    return new AgentError(
+      `Claude Code in ${cwd} did not finish within ${minutes} minutes and was stopped. ` +
+        "Try again, or add hints for the feature so the agent finds it faster.",
+      undefined,
+      { cause: error },
+    );
+  }
+  if (error instanceof CommandNotFoundError) {
+    return new AgentError(
+      `${error.message}. Install Claude Code and log in, or set ANTHROPIC_API_KEY to use the Anthropic API.`,
+      undefined,
+      { cause: error },
+    );
+  }
+  return error;
 }

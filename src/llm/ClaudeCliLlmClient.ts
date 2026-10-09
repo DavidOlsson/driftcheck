@@ -1,6 +1,6 @@
 import os from "node:os";
 import { AgentError, type Usage } from "../extract/AgentRunner.js";
-import { runClaudeCli } from "../extract/claudeCli.js";
+import { runClaudeCli, TOOLLESS_TIMEOUT_MS } from "../extract/claudeCli.js";
 import type { CommandRunner } from "../io/process.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { LlmClient, LlmRequest } from "./LlmClient.js";
@@ -22,6 +22,7 @@ export class ClaudeCliLlmClient implements LlmClient {
       model: request.model,
       maxBudgetUsd: COMPARE_BUDGET_USD,
       tools: "",
+      timeoutMs: TOOLLESS_TIMEOUT_MS,
     });
     const parsed = request.schema.safeParse(output);
     if (!parsed.success) {

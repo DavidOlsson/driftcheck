@@ -3,7 +3,8 @@ import { z } from "zod";
 import { AgentError, READ_ONLY_TOOLS } from "../src/extract/AgentRunner.js";
 import { buildAgentOptions } from "../src/extract/ClaudeAgentRunner.js";
 import { ClaudeCliAgentRunner } from "../src/extract/ClaudeCliAgentRunner.js";
-import { buildCliArgs, cliEnv, parseCliOutput } from "../src/extract/claudeCli.js";
+import { AGENT_TIMEOUT_MS, buildCliArgs, cliEnv, parseCliOutput, TOOLLESS_TIMEOUT_MS } from "../src/extract/claudeCli.js";
+import { CommandNotFoundError, CommandTimeoutError } from "../src/io/process.js";
 import { ClaudeCliLlmClient } from "../src/llm/ClaudeCliLlmClient.js";
 import { cliSuccess, FakeCommandRunner } from "./fakes/FakeCommandRunner.js";
 
@@ -18,6 +19,7 @@ describe("buildCliArgs", () => {
     model: "claude-sonnet-5-5",
     maxBudgetUsd: 1.5,
     tools: "Read,Grep,Glob",
+    timeoutMs: 60_000,
   });
 
   it("runs headless with structured JSON output", () => {
@@ -44,7 +46,7 @@ describe("buildCliArgs", () => {
 
   it("never puts the prompt on the command line, and disables all tools when none are requested", () => {
     expect(args).not.toContain("describe search");
-    const noTools = buildCliArgs({ cwd: "/", systemPrompt: "s", prompt: "p", jsonSchema: {}, model: "m", maxBudgetUsd: 1, tools: "" });
+    const noTools = buildCliArgs({ cwd: "/", systemPrompt: "s", prompt: "p", jsonSchema: {}, model: "m", maxBudgetUsd: 1, tools: "", timeoutMs: 1 });
     expect(flag(noTools, "--tools")).toBe("");
     expect(noTools).not.toContain("--allowedTools");
   });
@@ -160,7 +162,29 @@ describe("ClaudeCliAgentRunner", () => {
     expect(call.options.cwd).toBe("/repo/android");
     expect(call.options.input).toBe("describe search");
     expect(call.options.env?.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(call.options.timeoutMs).toBe(AGENT_TIMEOUT_MS);
     expect(result.output).toEqual({ feature: "search" });
+  });
+
+  it("explains a run that timed out or a claude command that disappeared", async () => {
+    const request = { cwd: "/r", systemPrompt: "s", prompt: "p", outputSchema: {}, model: "m", maxTurns: 1, maxBudgetUsd: 1 };
+    const timedOut = new FakeCommandRunner(() => new CommandTimeoutError("too slow", 30 * 60_000));
+    const error = await new ClaudeCliAgentRunner(timedOut).run(request).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AgentError);
+    expect((error as AgentError).message).toMatch(/^Claude Code in \/r did not finish within 30 minutes and was stopped\. Try again/);
+    expect((error as AgentError).cause).toBeInstanceOf(CommandTimeoutError);
+
+    const gone = new FakeCommandRunner(() => new CommandNotFoundError('"claude" was not found on PATH'));
+    await expect(new ClaudeCliAgentRunner(gone).run(request)).rejects.toThrowError(
+      /^"claude" was not found on PATH\. Install Claude Code and log in, or set ANTHROPIC_API_KEY/,
+    );
+  });
+
+  it("passes unexpected errors through unchanged", async () => {
+    const bug = new TypeError("not a command problem");
+    const commands = new FakeCommandRunner(() => bug);
+    const request = { cwd: "/r", systemPrompt: "s", prompt: "p", outputSchema: {}, model: "m", maxTurns: 1, maxBudgetUsd: 1 };
+    await expect(new ClaudeCliAgentRunner(commands).run(request)).rejects.toBe(bug);
   });
 
   it("gives the agent exactly the same read-only tools as the API backend", async () => {
@@ -183,6 +207,7 @@ describe("ClaudeCliLlmClient", () => {
     const result = await new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100, task: "comparison" });
     expect(result.output).toEqual({ findings: ["a"] });
     expect(flag(commands.calls[0]!.args, "--tools")).toBe("");
+    expect(commands.calls[0]!.options.timeoutMs).toBe(TOOLLESS_TIMEOUT_MS);
   });
 
   it("rejects output that does not match the schema, naming the task", async () => {

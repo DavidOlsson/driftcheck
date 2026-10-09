@@ -12,7 +12,7 @@ import { renderOverviewHtml } from "../report/overviewHtml.js";
 import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
 import type { ClaudeDeps } from "./deps.js";
-import { apiCost, maxCostUsd, runPerPlatform } from "./perPlatform.js";
+import { afterPaidRuns, apiCost, maxCostUsd, runPerPlatform } from "./perPlatform.js";
 
 export const overviewPaths = (projectRoot: string) => ({
   inventory: path.join(projectRoot, CONFIG_DIR, "inventory.json"),
@@ -75,7 +75,7 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
   const ios = inventoried.ios.verified;
   let usage = inventoried.usage;
 
-  const matched = await matchInventories(deps.llm, config.model, android, ios);
+  const matched = await afterPaidRuns(deps.backend, usage, () => matchInventories(deps.llm, config.model, android, ios));
   usage = addUsage(usage, matched.usage);
 
   const checked = await runPresenceChecks(config, deps, android, ios, matched.matches);
