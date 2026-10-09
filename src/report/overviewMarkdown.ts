@@ -1,7 +1,7 @@
 import { stringify as toYaml } from "yaml";
 import type { FeatureMatch, PresenceCheck, RunDetails, VerifiedInventory } from "../model/inventory.js";
 import { featuresById, groupMatches, suggestedComparisons, type InventoryFeature } from "./overviewData.js";
-import { cell, runDetailsLine } from "./shared.js";
+import { cell, mdText, runDetailsLine } from "./shared.js";
 
 export interface OverviewReportInput {
   android: VerifiedInventory;
@@ -15,7 +15,7 @@ function side(feature: InventoryFeature | undefined): string {
   if (!feature) return "—";
   const entry = feature.entryPoints[0];
   const ref = entry ? ` (\`${entry.file}:${entry.line}\`${feature.verified ? "" : " ⚠️ unverified"})` : "";
-  return cell(`✅ ${feature.name}${ref}`);
+  return cell(`✅ ${mdText(feature.name)}${ref}`);
 }
 
 /** The side of a platform-only row where the presence check looked for the feature. */
@@ -25,13 +25,13 @@ function checkedSide(check: PresenceCheck | undefined): string {
   const ref = e ? ` (\`${e.file}:${e.line}\`)` : "";
   switch (check.status) {
     case "found":
-      return cell(`✅ ${check.name || "found"}${ref}, found by the presence check`);
+      return cell(`✅ ${mdText(check.name || "found")}${ref}, found by the presence check`);
     case "part_of":
-      return cell(`↪ part of ${check.name || "another feature"}${ref}`);
+      return cell(`↪ part of ${mdText(check.name || "another feature")}${ref}`);
     case "not_found":
       return "— not found";
     case "unverified":
-      return cell(`❓ claimed in ${check.name || "another feature"}${ref}, evidence not verified`);
+      return cell(`❓ claimed in ${mdText(check.name || "another feature")}${ref}, evidence not verified`);
   }
 }
 
@@ -42,7 +42,7 @@ export function renderOverviewReport(input: OverviewReportInput): string {
 
   const out: string[] = [];
   out.push(`# Feature overview`, "");
-  out.push(`| | Android | iOS |`, `|---|---|---|`, `| Summary | ${cell(android.summary)} | ${cell(ios.summary)} |`, "");
+  out.push(`| | Android | iOS |`, `|---|---|---|`, `| Summary | ${cell(mdText(android.summary))} | ${cell(mdText(ios.summary))} |`, "");
   out.push(`## Summary`, "", `| | Count |`, `|---|---|`);
   out.push(
     `| On both platforms | ${groups.both.length} |`,
@@ -63,7 +63,7 @@ export function renderOverviewReport(input: OverviewReportInput): string {
       const i = m.ios ? side(byId.ios.get(m.ios)) : checkedSide(m.check);
       const notes = [m.note, m.check?.note].filter(Boolean).join(" ");
       const flag = m.deepCompare ? " 🔍" : "";
-      out.push(`| ${cell(m.name)}${flag} | ${a} | ${i} | ${cell(notes)} |`);
+      out.push(`| ${cell(mdText(m.name))}${flag} | ${a} | ${i} | ${cell(mdText(notes))} |`);
     }
     out.push("");
   };
