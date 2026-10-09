@@ -1,13 +1,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { z } from "zod";
 import { CONFIG_DIR, ConfigError, type Config } from "../config/config.js";
 import { addUsage, AgentError, NO_USAGE, type Usage } from "../extract/AgentRunner.js";
 import { FsSourceReader } from "../io/fileReader.js";
 import { extractInventory, matchInventories, verifyInventory, type VerifiedInventory } from "../inventory/inventory.js";
 import { applyChecks, candidatesFor, runPresenceCheck } from "../inventory/presence.js";
-import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
-import { FeatureMatch } from "../model/inventory.js";
+import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
+import { StoredInventory, type FeatureMatch, type RunDetails } from "../model/inventory.js";
 import { renderOverviewHtml } from "../report/overviewHtml.js";
 import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
@@ -31,34 +30,20 @@ export async function writeOverviewReports(projectRoot: string, input: OverviewR
 /** Rebuilds the reports from the stored inventory without calling Claude, e.g. after a report format change. */
 export async function rerenderOverview(projectRoot: string): Promise<{ report: string; html: string }> {
   const file = overviewPaths(projectRoot).inventory;
+  const name = path.relative(projectRoot, file);
   let raw: unknown;
   try {
     raw = JSON.parse(await readFile(file, "utf8"));
   } catch {
-    throw new ConfigError(`No readable ${path.relative(projectRoot, file)}. Run "driftcheck overview" first.`);
+    throw new ConfigError(`No readable ${name}. Run "driftcheck overview" first.`);
   }
-  const stored = raw as Partial<StoredInventory>;
-  if (!stored.android || !stored.ios || !Array.isArray(stored.matches)) {
-    throw new ConfigError(`${path.relative(projectRoot, file)} does not look like a driftcheck inventory. Run "driftcheck overview" again.`);
+  const parsed = StoredInventory.safeParse(raw);
+  if (!parsed.success) {
+    const problems = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
+    throw new ConfigError(`${name} does not look like a driftcheck inventory (${problems}). Run "driftcheck overview" again.`);
   }
-  const matches = z.array(FeatureMatch).parse(stored.matches);
-  return writeOverviewReports(projectRoot, {
-    android: stored.android,
-    ios: stored.ios,
-    matches,
-    // Inventories written before run details were stored fall back to neutral values
-    model: stored.meta?.model ?? "unknown",
-    backend: stored.meta?.backend ?? "claude-code",
-    usage: stored.meta?.usage ?? NO_USAGE,
-    generatedAt: stored.meta?.generatedAt ?? "unknown",
-  });
-}
-
-interface StoredInventory {
-  android: VerifiedInventory;
-  ios: VerifiedInventory;
-  matches: FeatureMatch[];
-  meta?: { model: string; backend: Backend; usage: Usage; generatedAt: string };
+  const { android, ios, matches, meta } = parsed.data;
+  return writeOverviewReports(projectRoot, { android, ios, matches, run: meta });
 }
 
 interface Inventoried {
@@ -118,11 +103,10 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
     }
   }
 
-  const generatedAt = deps.now().toISOString();
-  const meta = { model: config.model, backend: deps.backend, usage, generatedAt };
+  const meta: RunDetails = { model: config.model, backend: deps.backend, usage, generatedAt: deps.now().toISOString() };
   // Stored so `check` can map changed files to features later, and so reports can be rebuilt for free
   const stored: StoredInventory = { android, ios, matches, meta };
   await writeJson(paths.inventory, stored);
-  const files = await writeOverviewReports(config.projectRoot, { android, ios, matches, ...meta });
+  const files = await writeOverviewReports(config.projectRoot, { android, ios, matches, run: meta });
   return { matches, reportFile: files.report, htmlFile: files.html, usage };
 }

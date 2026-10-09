@@ -1,8 +1,5 @@
 import { stringify as toYaml } from "yaml";
-import type { Usage } from "../extract/AgentRunner.js";
-import type { VerifiedInventory } from "../inventory/inventory.js";
-import type { Backend } from "../model/backend.js";
-import type { FeatureMatch, PresenceCheck } from "../model/inventory.js";
+import type { FeatureMatch, PresenceCheck, RunDetails, VerifiedInventory } from "../model/inventory.js";
 import { featuresById, groupMatches, suggestedComparisons, type InventoryFeature } from "./overviewData.js";
 import { cell, runDetailsLine } from "./shared.js";
 
@@ -10,10 +7,8 @@ export interface OverviewReportInput {
   android: VerifiedInventory;
   ios: VerifiedInventory;
   matches: FeatureMatch[];
-  model: string;
-  backend: Backend;
-  usage: Usage;
-  generatedAt: string;
+  /** Missing for inventories stored before run details were recorded. */
+  run?: RunDetails;
 }
 
 function side(feature: InventoryFeature | undefined): string {
@@ -41,7 +36,7 @@ function checkedSide(check: PresenceCheck | undefined): string {
 }
 
 export function renderOverviewReport(input: OverviewReportInput): string {
-  const { android, ios, matches, model, backend, usage, generatedAt } = input;
+  const { android, ios, matches, run } = input;
   const byId = featuresById(android, ios);
   const groups = groupMatches(matches);
 
@@ -92,13 +87,7 @@ export function renderOverviewReport(input: OverviewReportInput): string {
     `- **iOS:** ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source`,
     `- Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.`,
   );
-  // Inventories stored before run details were recorded have no model, usage or date to show
-  if (model !== "unknown") {
-    out.push(
-      runDetailsLine(model, backend, usage),
-      `- **Generated:** ${generatedAt} by driftcheck`,
-    );
-  }
+  if (run) out.push(runDetailsLine(run.model, run.backend, run.usage), `- **Generated:** ${run.generatedAt} by driftcheck`);
   out.push("");
   return out.join("\n");
 }

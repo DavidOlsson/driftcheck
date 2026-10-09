@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { Evidence, Platform } from "./spec.js";
+import { BACKENDS } from "./backend.js";
+import { Evidence, Platform, VerifiedEvidence } from "./spec.js";
 
 /** One user-facing feature of one app, found during the overview. Deliberately shallow: depth is for `compare`. */
 export const InventoryFeature = z.object({
@@ -72,3 +73,39 @@ export type PresenceAnswer = z.infer<typeof PresenceAnswer>;
 export const MatchRow = FeatureMatch.omit({ check: true });
 export type MatchRow = z.infer<typeof MatchRow>;
 export const MatchOutput = z.object({ matches: z.array(MatchRow) });
+
+/** An inventory after its entry points were checked against the source. */
+export const VerifiedInventory = FeatureInventory.extend({
+  features: z.array(InventoryFeature.extend({ entryPoints: z.array(VerifiedEvidence), verified: z.boolean() })),
+});
+export type VerifiedInventory = z.infer<typeof VerifiedInventory>;
+
+const PlanWindow = z.object({
+  status: z.enum(["allowed", "allowed_warning", "rejected"]).optional(),
+  usedPercent: z.number().optional(),
+  thresholdPercent: z.number().optional(),
+  resetsAt: z.string().optional(),
+});
+
+/** How an overview was made, shown at the bottom of its reports. */
+export const RunDetails = z.object({
+  model: z.string(),
+  backend: z.enum(BACKENDS).exclude(["auto"]),
+  usage: z.object({
+    inputTokens: z.number(),
+    outputTokens: z.number(),
+    costUsd: z.number(),
+    plan: z.object({ fiveHour: PlanWindow.optional(), weekly: PlanWindow.optional() }).optional(),
+  }),
+  generatedAt: z.string(),
+});
+export type RunDetails = z.infer<typeof RunDetails>;
+
+/** `.driftcheck/inventory.json`. Inventories stored before run details were recorded have no `meta`. */
+export const StoredInventory = z.object({
+  android: VerifiedInventory,
+  ios: VerifiedInventory,
+  matches: z.array(FeatureMatch),
+  meta: RunDetails.optional(),
+});
+export type StoredInventory = z.infer<typeof StoredInventory>;

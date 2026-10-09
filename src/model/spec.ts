@@ -28,6 +28,20 @@ export const Evidence = z.object({
   /** A short verbatim snippet from the cited line, used to verify the claim. */
   quote: z.string().optional(),
 });
+
+/**
+ * Result of checking one piece of evidence against the source:
+ * - "verified": file and line exist and the quote was found near the line
+ * - "line_exists": file and line exist, but no quote was given to check against
+ * - "quote_not_found": file and line exist, but the quote was not found near the line
+ * - "line_out_of_range"
+ * - "file_not_found": missing, or outside the platform root
+ */
+export const EvidenceStatus = z.enum(["verified", "line_exists", "quote_not_found", "line_out_of_range", "file_not_found"]);
+export type EvidenceStatus = z.infer<typeof EvidenceStatus>;
+
+export const VerifiedEvidence = Evidence.extend({ status: EvidenceStatus });
+export type VerifiedEvidence = z.infer<typeof VerifiedEvidence>;
 export type Evidence = z.infer<typeof Evidence>;
 
 export const SpecItem = z.object({

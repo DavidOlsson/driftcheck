@@ -1,7 +1,7 @@
 import { stringify as toYaml } from "yaml";
 import { groupOf, type MatrixGroup } from "../inventory/presence.js";
 import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
-import type { FeatureMatch, PresenceCheck } from "../model/inventory.js";
+import type { FeatureMatch, PresenceCheck, RunDetails } from "../model/inventory.js";
 import { featuresById, groupMatches, suggestedComparisons, type FeaturesById, type InventoryFeature } from "./overviewData.js";
 import type { OverviewReportInput } from "./overviewMarkdown.js";
 import { tokenCounts, usageLabel } from "./shared.js";
@@ -62,8 +62,13 @@ function row(m: FeatureMatch, byId: FeaturesById): string {
 </tr>`;
 }
 
+function runDetailsHtml({ model, backend, usage }: RunDetails): string {
+  const usageText = usageLabel(backend, usage).replace(/\*\*/g, "");
+  return `Model: <code>${esc(model)}</code> via ${esc(BACKEND_DESCRIPTIONS[backend])} · Tokens: ${tokenCounts(usage)} · ${esc(usageText)}`;
+}
+
 export function renderOverviewHtml(input: OverviewReportInput): string {
-  const { android, ios, matches, model, backend, usage, generatedAt } = input;
+  const { android, ios, matches, run } = input;
   const byId = featuresById(android, ios);
   const groups = groupMatches(matches);
   const verified = (inv: typeof android) => inv.features.filter((f) => f.verified).length;
@@ -98,7 +103,6 @@ export function renderOverviewHtml(input: OverviewReportInput): string {
   <div class="code"><button class="copy" type="button">Copy</button><pre><code>${esc(yaml)}</code></pre></div>
 </section>`;
 
-  const usageText = usageLabel(backend, usage).replace(/\*\*/g, "");
 
   return `<!doctype html>
 <html lang="en">
@@ -184,7 +188,7 @@ tr.hidden, section.hidden { display: none !important; }
 <main>
 <header>
   <h1>Feature overview</h1>
-  <div class="muted">Android vs iOS${generatedAt === "unknown" ? "" : ` · generated ${esc(generatedAt)}`} by driftcheck</div>
+  <div class="muted">Android vs iOS${run ? ` · generated ${esc(run.generatedAt)}` : ""} by driftcheck</div>
 </header>
 
 <div class="summaries">
@@ -210,7 +214,7 @@ ${suggestions}
     <li>Android: ${android.features.length} features, ${verified(android)} with an entry point verified against the source.</li>
     <li>iOS: ${ios.features.length} features, ${verified(ios)} with an entry point verified against the source.</li>
     <li>Matching is done by the model from names and descriptions. Every feature listed on one platform only was then searched for on the other platform; only features that were not found are reported as platform-only.</li>
-${model === "unknown" ? "" : `    <li>Model: <code>${esc(model)}</code> via ${esc(BACKEND_DESCRIPTIONS[backend])} · Tokens: ${tokenCounts(usage)} · ${esc(usageText)}</li>`}
+${run ? `    <li>${runDetailsHtml(run)}</li>` : ""}
   </ul>
 </footer>
 </main>

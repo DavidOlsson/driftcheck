@@ -2,11 +2,11 @@ import type { Config } from "../config/config.js";
 import { AgentError, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
 import type { SourceReader } from "../io/fileReader.js";
 import type { LlmClient } from "../llm/LlmClient.js";
-import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow } from "../model/inventory.js";
+import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow, type VerifiedInventory } from "../model/inventory.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { Platform } from "../model/spec.js";
 import { runStructuredAgent } from "../extract/structured.js";
-import { cachedReader, checkEvidence, type VerifiedEvidence } from "../verify/verify.js";
+import { cachedReader, checkEvidence } from "../verify/verify.js";
 
 export const INVENTORY_JSON_SCHEMA = toOutputJsonSchema(FeatureInventory);
 
@@ -47,9 +47,7 @@ iOS features:
 ${JSON.stringify(list(ios), null, 2)}`;
 }
 
-export interface VerifiedInventory extends Omit<FeatureInventory, "features"> {
-  features: (FeatureInventory["features"][number] & { entryPoints: VerifiedEvidence[]; verified: boolean })[];
-}
+export type { VerifiedInventory };
 
 export async function verifyInventory(inventory: FeatureInventory, source: SourceReader): Promise<VerifiedInventory> {
   const reader = cachedReader(source);

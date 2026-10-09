@@ -164,10 +164,12 @@ describe("renderOverviewReport", () => {
       android,
       ios,
       matches,
-      model: "claude-sonnet-5-5",
-      backend: "claude-code",
-      usage: { inputTokens: 10, outputTokens: 5, costUsd: 1 },
-      generatedAt: "2026-10-02T12:00:00.000Z",
+      run: {
+        model: "claude-sonnet-5-5",
+        backend: "claude-code",
+        usage: { inputTokens: 10, outputTokens: 5, costUsd: 1 },
+        generatedAt: "2026-10-02T12:00:00.000Z",
+      },
     });
 
     expect(text).toContain("| On both platforms | 2 |");

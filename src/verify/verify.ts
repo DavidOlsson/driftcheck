@@ -1,20 +1,7 @@
 import type { SourceReader } from "../io/fileReader.js";
-import type { Evidence, FeatureSpec, SpecItem } from "../model/spec.js";
+import type { Evidence, EvidenceStatus, FeatureSpec, SpecItem, VerifiedEvidence } from "../model/spec.js";
 
-export type EvidenceStatus =
-  /** File and line exist and the quote was found near the line. */
-  | "verified"
-  /** File and line exist, but no quote was given to check against. */
-  | "line_exists"
-  /** File and line exist, but the quote was not found near the line. */
-  | "quote_not_found"
-  | "line_out_of_range"
-  /** Missing, or outside the platform root. */
-  | "file_not_found";
-
-export interface VerifiedEvidence extends Evidence {
-  status: EvidenceStatus;
-}
+export type { EvidenceStatus, VerifiedEvidence };
 
 export interface VerifiedSpecItem extends Omit<SpecItem, "evidence"> {
   evidence: VerifiedEvidence[];
