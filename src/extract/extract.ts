@@ -3,6 +3,7 @@ import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import { FeatureSpec, type Platform } from "../model/spec.js";
 import { AgentError, type AgentRunner, type Usage } from "./AgentRunner.js";
 import { featurePrompt, SYSTEM_PROMPT } from "./prompts.js";
+import { runStructuredAgent } from "./structured.js";
 
 export const FEATURE_SPEC_JSON_SCHEMA = toOutputJsonSchema(FeatureSpec);
 
@@ -18,27 +19,16 @@ export async function extractFeature(
   feature: FeatureConfig,
   platform: Platform,
 ): Promise<ExtractResult> {
-  const result = await runner.run({
-    cwd: config.platforms[platform],
+  const { output: spec, usage } = await runStructuredAgent(runner, config, platform, {
     systemPrompt: SYSTEM_PROMPT,
     prompt: featurePrompt(platform, feature),
+    schema: FeatureSpec,
     outputSchema: FEATURE_SPEC_JSON_SCHEMA,
-    model: config.model,
-    maxTurns: config.maxTurns,
-    maxBudgetUsd: config.maxBudgetUsd,
+    label: "feature description",
   });
-
-  const parsed = FeatureSpec.safeParse(result.output);
-  if (!parsed.success) {
-    const problems = parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new AgentError(`The ${platform} agent returned output that does not match the feature schema (${problems})`, result.usage);
-  }
   // The agent is told which feature and platform to use, but the caller is the source of truth
-  if (parsed.data.feature !== feature.id || parsed.data.platform !== platform) {
-    throw new AgentError(
-      `The ${platform} agent described "${parsed.data.feature}"/${parsed.data.platform} instead of "${feature.id}"/${platform}`,
-      result.usage,
-    );
+  if (spec.feature !== feature.id || spec.platform !== platform) {
+    throw new AgentError(`The ${platform} agent described "${spec.feature}"/${spec.platform} instead of "${feature.id}"/${platform}`, usage);
   }
-  return { spec: parsed.data, usage: result.usage };
+  return { spec, usage };
 }
