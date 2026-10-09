@@ -180,16 +180,16 @@ describe("ClaudeCliLlmClient", () => {
 
   it("calls claude without tools and validates the output against the schema", async () => {
     const commands = new FakeCommandRunner(() => cliSuccess({ findings: ["a"] }));
-    const result = await new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100 });
+    const result = await new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100, task: "comparison" });
     expect(result.output).toEqual({ findings: ["a"] });
     expect(flag(commands.calls[0]!.args, "--tools")).toBe("");
   });
 
-  it("rejects output that does not match the schema", async () => {
+  it("rejects output that does not match the schema, naming the task", async () => {
     const commands = new FakeCommandRunner(() => cliSuccess({ findings: "not a list" }));
     await expect(
-      new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100 }),
-    ).rejects.toThrowError(AgentError);
+      new ClaudeCliLlmClient(commands).parse({ model: "m", system: "s", prompt: "p", schema, maxTokens: 100, task: "feature matching" }),
+    ).rejects.toThrowError(/^The feature matching did not return output matching the expected schema\.$/);
   });
 });
 

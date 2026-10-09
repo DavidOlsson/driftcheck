@@ -132,6 +132,7 @@ export async function matchInventories(
     prompt: matchPrompt(android, ios),
     schema: MatchOutput,
     maxTokens: 16_000,
+    task: "feature matching",
   });
   return { matches: completeMatches(MatchOutput.parse(output).matches, android, ios), usage };
 }

@@ -15,6 +15,10 @@ export interface LlmRequest<T> {
   prompt: string;
   schema: z.ZodType<T>;
   maxTokens: number;
+  /** What the call does, for error messages, e.g. "comparison" or "feature matching". */
+  task: string;
+  /** Extra advice when the answer is cut off at maxTokens, specific to the task. */
+  cutOffHint?: string;
 }
 
 export class AnthropicLlmClient implements LlmClient {
@@ -33,23 +37,23 @@ export class AnthropicLlmClient implements LlmClient {
       fallbacks: "default",
     });
 
+    // A failed call was still billed, so every error below carries the usage
+    const { input_tokens, output_tokens } = response.usage;
+    const usage: Usage = {
+      inputTokens: input_tokens,
+      outputTokens: output_tokens,
+      costUsd: estimateCostUsd(request.model, input_tokens, output_tokens) ?? 0,
+    };
     if (response.stop_reason === "refusal") {
-      throw new AgentError("The model declined to compare these descriptions.");
+      throw new AgentError(`The model declined the ${request.task}.`, usage);
     }
     if (response.stop_reason === "max_tokens") {
-      throw new AgentError(`The comparison was cut off at ${request.maxTokens} output tokens. Try a feature with fewer items.`);
+      const hint = request.cutOffHint ? ` ${request.cutOffHint}` : "";
+      throw new AgentError(`The ${request.task} was cut off at ${request.maxTokens} output tokens.${hint}`, usage);
     }
     if (response.parsed_output == null) {
-      throw new AgentError("The comparison did not return output matching the expected schema.");
+      throw new AgentError(`The ${request.task} did not return output matching the expected schema.`, usage);
     }
-    const { input_tokens, output_tokens } = response.usage;
-    return {
-      output: response.parsed_output as T,
-      usage: {
-        inputTokens: input_tokens,
-        outputTokens: output_tokens,
-        costUsd: estimateCostUsd(request.model, input_tokens, output_tokens) ?? 0,
-      },
-    };
+    return { output: response.parsed_output as T, usage };
   }
 }

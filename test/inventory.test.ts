@@ -213,6 +213,8 @@ describe("runOverview", () => {
     const result = await runOverview(config, { backend: "api", runner, llm, now: () => new Date("2026-10-02T12:00:00Z"), log: (m) => logs.push(m) });
 
     expect(result.matches).toHaveLength(5);
+    expect(llm.requests[0]).toMatchObject({ task: "feature matching" });
+    expect(llm.requests[0]?.cutOffHint).toBeUndefined();
     expect(result.matches.find((m) => m.id === "settings")?.check?.status).toBe("not_found");
     expect(runner.requests.filter((r) => r.systemPrompt === PRESENCE_SYSTEM_PROMPT)).toHaveLength(2);
     expect(logs.some((l) => l.includes("checking 2 features that ios seems to lack"))).toBe(true);

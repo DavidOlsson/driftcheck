@@ -86,6 +86,8 @@ export async function compareSpecs(
     prompt: comparePrompt(android, ios),
     schema: CompareOutput,
     maxTokens: COMPARE_MAX_TOKENS,
+    task: "comparison",
+    cutOffHint: "Try a feature with fewer items.",
   });
   // The client already parsed with this schema; validating again keeps fakes and real clients honest
   const parsed = CompareOutput.parse(output);

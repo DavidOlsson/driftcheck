@@ -59,7 +59,7 @@ describe("compareSpecs", () => {
     const llm = new FakeLlmClient(() => ({ findings: [finding()] }));
     const result = await compareSpecs(llm, "claude-sonnet-5-5", android, ios);
 
-    expect(llm.requests[0]).toMatchObject({ model: "claude-sonnet-5-5", schema: CompareOutput });
+    expect(llm.requests[0]).toMatchObject({ model: "claude-sonnet-5-5", schema: CompareOutput, task: "comparison", cutOffHint: expect.stringContaining("fewer items") });
     expect(result.findings).toHaveLength(1);
     expect(result.usage.costUsd).toBeGreaterThan(0);
   });
