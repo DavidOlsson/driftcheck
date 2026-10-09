@@ -95,7 +95,7 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
 
 /**
  * Looks for each platform-only feature on the other platform before it is reported as missing.
- * A failed check leaves its rows "uncertain" instead of failing the whole overview.
+ * A check that fails with an AgentError leaves its rows "uncertain" instead of failing the whole overview.
  */
 async function runPresenceChecks(
   config: Config,
@@ -117,6 +117,10 @@ async function runPresenceChecks(
     }),
   );
 
+  // Only agent problems (budget, schema, API) are tolerated; anything else is a bug and must not look like "uncertain"
+  const bug = results.find((r): r is PromiseRejectedResult => r.status === "rejected" && !(r.reason instanceof AgentError));
+  if (bug) throw bug.reason;
+
   let matches = rows;
   let usage = NO_USAGE;
   for (const [i, r] of results.entries()) {
@@ -124,8 +128,9 @@ async function runPresenceChecks(
       usage = addUsage(usage, r.value.usage);
       matches = applyChecks(matches, r.value.checks);
     } else {
-      if (r.reason instanceof AgentError) usage = addUsage(usage, r.reason.usage);
-      deps.log(`  ${PLATFORMS[i]} presence check failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      const error = r.reason as AgentError;
+      usage = addUsage(usage, error.usage);
+      deps.log(`  ${PLATFORMS[i]} presence check failed: ${error.message}`);
     }
   }
   return { matches, usage };

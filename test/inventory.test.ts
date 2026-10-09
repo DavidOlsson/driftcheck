@@ -243,6 +243,17 @@ describe("runOverview", () => {
     // Two inventories and one presence check at 0.01 each, matching at 0.004, and the failed check's 0.5
     expect(result.usage.costUsd).toBeCloseTo(0.534);
   });
+
+  it("does not hide bugs in a presence check as an uncertain result", async () => {
+    const config = await validateProject(root);
+    const bug = new TypeError("cannot read properties of undefined");
+    const runner = new FakeAgentRunner((r: AgentRequest) => {
+      if (r.systemPrompt === PRESENCE_SYSTEM_PROMPT) throw bug;
+      return r.cwd.endsWith("android") ? androidInventory : iosInventory;
+    });
+    const llm = new FakeLlmClient(() => ({ matches: [match({ id: "search", name: "Search", android: "search", ios: "find" })] }));
+    await expect(runOverview(config, { backend: "api", runner, llm, now: () => new Date(), log: () => {} })).rejects.toBe(bug);
+  });
 });
 
 describe("presence check", () => {
