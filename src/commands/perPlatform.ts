@@ -8,9 +8,15 @@ export function apiCost(backend: Backend, text: string): string {
   return backend === "api" ? text : "";
 }
 
-/** Upper bound shown before a run: two agent runs at their budget plus a small allowance for the tool-less step. */
-export function maxCostUsd(config: Config): number {
-  return 2 * config.maxBudgetUsd + 0.5;
+/**
+ * Rough allowance for the one tool-less call (comparison or matching) with an API key: it has no budget
+ * limit of its own, but is capped at 16,000 output tokens, which costs well under this.
+ */
+const TOOLLESS_CALL_ALLOWANCE_USD = 0.5;
+
+/** Upper bound shown before a run: every agent run at its budget, plus the tool-less call. */
+export function maxCostUsd(config: Config, agentRuns: number): number {
+  return agentRuns * config.maxBudgetUsd + TOOLLESS_CALL_ALLOWANCE_USD;
 }
 
 /**

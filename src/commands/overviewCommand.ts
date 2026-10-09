@@ -59,9 +59,12 @@ export interface OverviewResult {
   usage: Usage;
 }
 
+/** An inventory per platform, plus up to one presence check per platform. */
+const OVERVIEW_AGENT_RUNS = 4;
+
 export async function runOverview(config: Config, deps: ClaudeDeps): Promise<OverviewResult> {
   const paths = overviewPaths(config.projectRoot);
-  const limit = apiCost(deps.backend, ` (at most about $${maxCostUsd(config).toFixed(2)})`);
+  const limit = apiCost(deps.backend, ` (at most about $${maxCostUsd(config, OVERVIEW_AGENT_RUNS).toFixed(2)})`);
   deps.log(`Mapping features with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]}${limit}…`);
 
   const inventoried = await runPerPlatform(deps.backend, async (platform): Promise<Inventoried> => {

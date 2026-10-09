@@ -70,8 +70,9 @@ describe("apiCost and maxCostUsd", () => {
     expect(apiCost("claude-code", " ($1.00)")).toBe("");
   });
 
-  it("bounds a run by two agent budgets plus the tool-less step", () => {
+  it("bounds a run by every agent budget plus the tool-less step", () => {
     const config = parseConfig("version: 1\nplatforms: {android: {path: a}, ios: {path: i}}\nmaxBudgetUsd: 1.5\n", "/p");
-    expect(maxCostUsd(config)).toBe(3.5);
+    expect(maxCostUsd(config, 2)).toBe(3.5);
+    expect(maxCostUsd(config, 4)).toBe(6.5);
   });
 });

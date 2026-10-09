@@ -25,7 +25,7 @@ export interface CompareResult {
 export async function runCompare(config: Config, featureId: string, deps: ClaudeDeps): Promise<CompareResult> {
   const feature = findFeature(config, featureId);
   const paths = storePaths(config.projectRoot, feature.id);
-  const limit = apiCost(deps.backend, ` (at most about $${maxCostUsd(config).toFixed(2)})`);
+  const limit = apiCost(deps.backend, ` (at most about $${maxCostUsd(config, 2).toFixed(2)})`);
   deps.log(`Comparing "${feature.name}" with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]}${limit}…`);
 
   const extracted = await runPerPlatform(deps.backend, async (platform): Promise<Extracted> => {
