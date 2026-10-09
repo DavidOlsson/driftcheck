@@ -4,7 +4,7 @@ import { findFeature, type Config } from "../config/config.js";
 import { addUsage, type Usage } from "../extract/AgentRunner.js";
 import { extractFeature } from "../extract/extract.js";
 import { FsSourceReader } from "../io/fileReader.js";
-import type { Finding } from "../model/finding.js";
+import type { VerifiedFinding } from "../model/finding.js";
 import { renderCompareReport } from "../report/markdown.js";
 import { storePaths, writeJson, writeText } from "../store/store.js";
 import { verifySpec, type VerifiedFeatureSpec } from "../verify/verify.js";
@@ -17,7 +17,7 @@ interface Extracted {
 }
 
 export interface CompareResult {
-  findings: Finding[];
+  findings: VerifiedFinding[];
   reportFile: string;
   usage: Usage;
 }

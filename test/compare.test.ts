@@ -44,8 +44,31 @@ describe("sanitizeFindings", () => {
 
     const result = sanitizeFindings(findings, "search", android, ios);
     expect(result.map((f) => f.title)).toEqual(["Invented evidence", "Low behavior", "Only Android", "Same namespace"]);
-    expect(result[0]?.android?.evidence).toEqual([{ file: "Search.kt", line: 10 }]);
+    expect(result[0]?.android?.evidence).toEqual([{ file: "Search.kt", line: 10, quote: "debounce = 200", status: "verified" }]);
     expect(result[2]?.ios).toBeNull();
+  });
+
+  it("uses the description's checked citation, so an unverified one stays marked", () => {
+    const unverified = {
+      ...android,
+      items: android.items.map((i) => ({ ...i, verified: false, evidence: i.evidence.map((e) => ({ ...e, status: "quote_not_found" as const })) })),
+    };
+    const copied = finding({ android: { summary: "x", evidence: [{ file: "Search.kt", line: 10, quote: "made up" }] } });
+    const [f] = sanitizeFindings([copied] as Finding[], "search", unverified, ios);
+    expect(f?.android?.evidence).toEqual([{ file: "Search.kt", line: 10, quote: "debounce = 200", status: "quote_not_found" }]);
+  });
+
+  it("prefers a verified citation when two items cite the same line", () => {
+    const item = android.items[0]!;
+    const twice = {
+      ...android,
+      items: [
+        { ...item, key: "a.first", verified: false, evidence: [{ file: "Search.kt", line: 10, quote: "other", status: "quote_not_found" as const }] },
+        item,
+      ],
+    };
+    const [f] = sanitizeFindings([finding()] as Finding[], "search", twice, ios);
+    expect(f?.android?.evidence[0]?.status).toBe("verified");
   });
 
   it("forces the feature id from the input", () => {

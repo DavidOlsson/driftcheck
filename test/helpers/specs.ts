@@ -36,3 +36,11 @@ export const finding = (overrides: Record<string, unknown> = {}) => ({
   question: "Is the difference intentional?",
   ...overrides,
 });
+
+/** A finding as sanitizing returns it: every reference carries its verification status. */
+export const verifiedFinding = (overrides: Record<string, unknown> = {}) =>
+  finding({
+    android: { summary: "200 ms", evidence: [{ file: "Search.kt", line: 10, quote: "debounce = 200", status: "verified" }] },
+    ios: { summary: "100 ms", evidence: [{ file: "Search.swift", line: 10, quote: "debounce = 100", status: "verified" }] },
+    ...overrides,
+  });

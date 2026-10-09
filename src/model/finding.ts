@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Evidence } from "./spec.js";
+import { Evidence, VerifiedEvidence } from "./spec.js";
 
 export const FindingCategory = z.enum([
   /** Users get different behavior on the two platforms. */
@@ -38,3 +38,16 @@ export const Finding = z.object({
   question: z.string().optional(),
 });
 export type Finding = z.infer<typeof Finding>;
+
+/**
+ * A finding whose evidence was matched with the verified descriptions, so a report can tell
+ * references that were checked against the source from ones that were not.
+ */
+export const VerifiedPlatformSide = PlatformSide.extend({ evidence: z.array(VerifiedEvidence) });
+export type VerifiedPlatformSide = z.infer<typeof VerifiedPlatformSide>;
+
+export const VerifiedFinding = Finding.extend({
+  android: VerifiedPlatformSide.nullable(),
+  ios: VerifiedPlatformSide.nullable(),
+});
+export type VerifiedFinding = z.infer<typeof VerifiedFinding>;
