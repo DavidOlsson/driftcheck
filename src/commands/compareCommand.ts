@@ -1,22 +1,14 @@
-import { BACKEND_DESCRIPTIONS, type Backend } from "../model/backend.js";
+import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
 import { compareSpecs } from "../compare/compare.js";
 import { findFeature, type Config } from "../config/config.js";
-import { addUsage, AgentError, NO_USAGE, type AgentRunner, type Usage } from "../extract/AgentRunner.js";
+import { addUsage, AgentError, NO_USAGE, type Usage } from "../extract/AgentRunner.js";
 import { extractFeature } from "../extract/extract.js";
 import { FsSourceReader } from "../io/fileReader.js";
-import type { LlmClient } from "../llm/LlmClient.js";
 import type { Finding } from "../model/finding.js";
 import { renderCompareReport } from "../report/markdown.js";
 import { storePaths, writeJson, writeText } from "../store/store.js";
 import { verifySpec, type VerifiedFeatureSpec } from "../verify/verify.js";
-
-export interface CompareDeps {
-  backend: Backend;
-  runner: AgentRunner;
-  llm: LlmClient;
-  now: () => Date;
-  log: (message: string) => void;
-}
+import type { ClaudeDeps } from "./deps.js";
 
 interface Extracted {
   verified: VerifiedFeatureSpec;
@@ -34,7 +26,7 @@ export function maxCostUsd(config: Config): number {
   return 2 * config.maxBudgetUsd + 0.5;
 }
 
-export async function runCompare(config: Config, featureId: string, deps: CompareDeps): Promise<CompareResult> {
+export async function runCompare(config: Config, featureId: string, deps: ClaudeDeps): Promise<CompareResult> {
   const feature = findFeature(config, featureId);
   const paths = storePaths(config.projectRoot, feature.id);
   const limit = deps.backend === "api" ? ` (at most about $${maxCostUsd(config).toFixed(2)})` : "";

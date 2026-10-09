@@ -11,7 +11,7 @@ import { FeatureMatch } from "../model/inventory.js";
 import { renderOverviewHtml } from "../report/overviewHtml.js";
 import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
-import type { CompareDeps } from "./compareCommand.js";
+import type { ClaudeDeps } from "./deps.js";
 
 export const overviewPaths = (projectRoot: string) => ({
   inventory: path.join(projectRoot, CONFIG_DIR, "inventory.json"),
@@ -72,7 +72,7 @@ export interface OverviewResult {
   usage: Usage;
 }
 
-export async function runOverview(config: Config, deps: CompareDeps): Promise<OverviewResult> {
+export async function runOverview(config: Config, deps: ClaudeDeps): Promise<OverviewResult> {
   const paths = overviewPaths(config.projectRoot);
   const limit = deps.backend === "api" ? ` (at most about $${(2 * config.maxBudgetUsd + 0.5).toFixed(2)})` : "";
   deps.log(`Mapping features with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]}${limit}…`);

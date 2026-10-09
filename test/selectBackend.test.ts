@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isClaudeCodeInstalled, selectBackend } from "../src/backend.js";
+import { isClaudeCodeInstalled, selectBackend } from "../src/selectBackend.js";
 import { ConfigError } from "../src/config/config.js";
 import { CommandNotFoundError } from "../src/io/process.js";
 import { FakeCommandRunner } from "./fakes/FakeCommandRunner.js";
