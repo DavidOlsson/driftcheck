@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { Usage } from "../extract/AgentRunner.js";
 import type { LlmClient } from "../llm/LlmClient.js";
-import { Finding, type FindingCategory, type Severity } from "../model/finding.js";
-import type { Evidence } from "../model/spec.js";
+import { Finding, type FindingCategory, type PlatformSide, type Severity, type VerifiedFinding, type VerifiedPlatformSide } from "../model/finding.js";
+import type { Evidence, VerifiedEvidence } from "../model/spec.js";
 import type { VerifiedFeatureSpec } from "../verify/verify.js";
 
 export const CompareOutput = z.object({ findings: z.array(Finding) });
@@ -44,26 +44,40 @@ function evidenceKey(e: Evidence): string {
   return `${e.file}:${e.line}`;
 }
 
+/** A description's checked evidence by file and line. When two items cite the same line, a verified citation wins. */
+function evidenceIndex(spec: VerifiedFeatureSpec): Map<string, VerifiedEvidence> {
+  const index = new Map<string, VerifiedEvidence>();
+  for (const e of spec.items.flatMap((i) => i.evidence)) {
+    if (!index.has(evidenceKey(e)) || e.status === "verified") index.set(evidenceKey(e), e);
+  }
+  return index;
+}
+
+/**
+ * The description's own citation replaces the model's, so the status belongs to the quote that was
+ * actually checked, not to whatever the comparison step copied.
+ */
+function withStatus(side: PlatformSide | null, index: Map<string, VerifiedEvidence>): VerifiedPlatformSide | null {
+  return side && { ...side, evidence: side.evidence.flatMap((e) => index.get(evidenceKey(e)) ?? []) };
+}
+
 /**
  * Keeps only evidence that exists in the input descriptions, so the comparison step cannot introduce
- * file references that were never checked by the verification step.
+ * file references that were never checked by the verification step, and carries over each one's status.
  */
 export function sanitizeFindings(
   findings: Finding[],
   feature: string,
   android: VerifiedFeatureSpec,
   ios: VerifiedFeatureSpec,
-): Finding[] {
-  const known = {
-    android: new Set(android.items.flatMap((i) => i.evidence.map(evidenceKey))),
-    ios: new Set(ios.items.flatMap((i) => i.evidence.map(evidenceKey))),
-  };
+): VerifiedFinding[] {
+  const known = { android: evidenceIndex(android), ios: evidenceIndex(ios) };
   return findings
     .map((f) => ({
       ...f,
       feature,
-      android: f.android && { ...f.android, evidence: f.android.evidence.filter((e) => known.android.has(evidenceKey(e))) },
-      ios: f.ios && { ...f.ios, evidence: f.ios.evidence.filter((e) => known.ios.has(evidenceKey(e))) },
+      android: withStatus(f.android, known.android),
+      ios: withStatus(f.ios, known.ios),
     }))
     .sort(
       (a, b) =>
@@ -79,7 +93,7 @@ export async function compareSpecs(
   model: string,
   android: VerifiedFeatureSpec,
   ios: VerifiedFeatureSpec,
-): Promise<{ findings: Finding[]; usage: Usage }> {
+): Promise<{ findings: VerifiedFinding[]; usage: Usage }> {
   const { output, usage } = await llm.parse({
     model,
     system: COMPARE_SYSTEM_PROMPT,

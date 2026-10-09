@@ -62,6 +62,8 @@ Each platform is analyzed by a Claude agent that can only use `Read`, `Grep` and
 
 Every claim in a feature description cites a file, a line and a short verbatim quote. `verify` checks each one against the actual source and marks it as `verified`, `quote_not_found`, `line_out_of_range` or `file_not_found`. Paths are resolved strictly inside the platform root (no absolute paths, `..` or symlinks out of the tree).
 
+Findings can only cite evidence that is in the two descriptions, and each reference keeps its status. The comparison report marks references that could not be confirmed with ⚠️ and lists findings that cite no source at all.
+
 ## Using your Claude login or an API key
 
 driftcheck can reach Claude in two ways. By default (`backend: auto`) it uses `ANTHROPIC_API_KEY` if it is set, and otherwise the Claude Code CLI you are logged in to. Force one with `--backend api|claude-code` or `backend:` in `.driftcheck/config.yml`.

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { estimateCostUsd } from "../src/llm/pricing.js";
-import type { Finding } from "../src/model/finding.js";
+import type { VerifiedFinding } from "../src/model/finding.js";
 import { renderCompareReport } from "../src/report/markdown.js";
 import { usageLabel } from "../src/report/shared.js";
-import { finding, verifiedSpec } from "./helpers/specs.js";
+import { verifiedFinding, verifiedSpec } from "./helpers/specs.js";
 
-const report = (findings: Finding[], backend: "api" | "claude-code" = "api") =>
+const report = (findings: VerifiedFinding[], backend: "api" | "claude-code" = "api") =>
   renderCompareReport({
     featureName: "Search",
     android: verifiedSpec("android", "200", "Search.kt"),
@@ -20,9 +20,9 @@ const report = (findings: Finding[], backend: "api" | "claude-code" = "api") =>
 describe("renderCompareReport", () => {
   it("summarizes counts per category and renders each finding with evidence", () => {
     const text = report([
-      finding(),
-      finding({ category: "missing", severity: "medium", title: "Voice search", ios: null, question: undefined }),
-    ] as Finding[]);
+      verifiedFinding(),
+      verifiedFinding({ category: "missing", severity: "medium", title: "Voice search", ios: null, question: undefined }),
+    ] as VerifiedFinding[]);
 
     expect(text).toContain("# Parity report: Search");
     expect(text).toContain("| 🔴 Behavior differences | 1 |");
@@ -34,7 +34,7 @@ describe("renderCompareReport", () => {
   });
 
   it("lists questions, verification, things not found and cost", () => {
-    const text = report([finding()] as Finding[]);
+    const text = report([verifiedFinding()] as VerifiedFinding[]);
     expect(text).toContain("## Questions for the team");
     expect(text).toContain("1. Is the difference intentional?");
     expect(text).toContain("**Android:** 1 of 1 items verified");
@@ -45,21 +45,40 @@ describe("renderCompareReport", () => {
   });
 
   it("shows plan usage instead of a dollar estimate for subscription runs", () => {
-    const text = report([finding()] as Finding[], "claude-code");
+    const text = report([verifiedFinding()] as VerifiedFinding[], "claude-code");
     expect(text).toContain("via Claude Code CLI (your Claude subscription)");
     expect(text).not.toContain("$0.46");
     expect(text).toContain("**Plan usage:** not reported by Claude Code for this run");
-    expect(report([finding()] as Finding[])).toContain("via Anthropic API (ANTHROPIC_API_KEY)");
+    expect(report([verifiedFinding()] as VerifiedFinding[])).toContain("via Anthropic API (ANTHROPIC_API_KEY)");
   });
 
   it("warns about sections a platform did not inspect", () => {
-    const text = report([finding()] as Finding[]);
+    const text = report([verifiedFinding()] as VerifiedFinding[]);
     expect(text).toContain("⚠️ **Android sections not inspected:** presentation");
     expect(text).not.toContain("iOS sections not inspected");
   });
 
+  it("marks references that could not be confirmed and counts them for the findings", () => {
+    const text = report([
+      verifiedFinding({
+        android: { summary: "200 ms", evidence: [{ file: "Search.kt", line: 10, quote: "debounce = 200", status: "quote_not_found" }] },
+      }),
+    ] as VerifiedFinding[]);
+    expect(text).toContain("| 1 | high | Different debounce | 200 ms (`Search.kt:10` ⚠️) | 100 ms (`Search.swift:10`) |");
+    expect(text).toContain("- **Findings:** 1 of 2 source references verified; ⚠️ marks the ones that could not be confirmed");
+    expect(text).not.toContain("without a source reference");
+  });
+
+  it("lists findings that cite no source at all", () => {
+    const text = report([
+      verifiedFinding(),
+      verifiedFinding({ title: "Unbacked", android: { summary: "x", evidence: [] }, ios: null }),
+    ] as VerifiedFinding[]);
+    expect(text).toContain("- ⚠️ **Findings without a source reference:** Unbacked");
+  });
+
   it("keeps table cells intact when text contains pipes or newlines", () => {
-    const text = report([finding({ title: "a | b\nc" })] as Finding[]);
+    const text = report([verifiedFinding({ title: "a | b\nc" })] as VerifiedFinding[]);
     expect(text).toContain("a \\| b c");
   });
 });
