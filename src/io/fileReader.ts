@@ -1,5 +1,6 @@
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import { isWithin } from "./paths.js";
 
 /** Read access to one platform's source tree. Behind an interface so verification can be tested in memory. */
 export interface SourceReader {
@@ -14,8 +15,7 @@ export interface SourceReader {
 export function resolveInsideRoot(root: string, relativePath: string): string | null {
   if (path.isAbsolute(relativePath)) return null;
   const resolved = path.resolve(root, relativePath);
-  const rel = path.relative(root, resolved);
-  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  if (resolved === path.resolve(root) || !isWithin(root, resolved)) return null;
   return resolved;
 }
 

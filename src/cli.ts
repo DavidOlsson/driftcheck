@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
-import { ConfigError } from "./config/config.js";
+import { ConfigError, parseModel } from "./config/config.js";
 import { AgentError } from "./extract/AgentRunner.js";
 import { initProject, validateProject } from "./commands/project.js";
 import { formatSummary, verifySpecFile } from "./commands/verifyCommand.js";
@@ -27,9 +27,14 @@ const program = new Command()
   .name("driftcheck")
   .description("Keeps native Android and iOS apps in sync by comparing how each feature is implemented on both platforms.")
   .version(version)
-  .option("-C, --project <dir>", "project root that contains .driftcheck/", ".");
+  .option("-C, --project <dir>", "project root that contains .driftcheck/", ".")
+  .option("--allow-external-paths", "allow platform paths in the config to point outside the project root");
 
 const projectRoot = () => path.resolve(program.opts<{ project: string }>().project);
+
+/** The external-paths opt-in exists only on the command line, so a config from a pull request cannot grant it. */
+const loadProject = () =>
+  validateProject(projectRoot(), { allowExternalPaths: program.opts<{ allowExternalPaths?: boolean }>().allowExternalPaths });
 
 program
   .command("init")
@@ -44,7 +49,7 @@ program
   .command("validate")
   .description("check the config and that both platform paths exist")
   .action(async () => {
-    const config = await validateProject(projectRoot());
+    const config = await loadProject();
     console.log(`Config OK. android: ${config.platforms.android}`);
     console.log(`           ios: ${config.platforms.ios}`);
     console.log(`Features: ${config.features.map((f) => f.id).join(", ") || "none"} · model: ${config.model}`);
@@ -54,7 +59,7 @@ program
   .command("verify <spec>")
   .description("verify a feature description's evidence (file, line, quote) against the source")
   .action(async (spec: string) => {
-    const config = await validateProject(projectRoot());
+    const config = await loadProject();
     const result = await verifySpecFile(config, path.resolve(spec));
     console.log(formatSummary(result.spec, result.summary));
   });
@@ -66,8 +71,8 @@ interface ClaudeOptions {
 
 /** Shared by every command that calls Claude: config, backend choice and the matching clients. */
 async function setupClaude(options: ClaudeOptions) {
-  const loaded = await validateProject(projectRoot());
-  const config = options.model ? { ...loaded, model: options.model } : loaded;
+  const loaded = await loadProject();
+  const config = options.model ? { ...loaded, model: parseModel(options.model) } : loaded;
   const commands = new NodeCommandRunner();
   const backend = await selectBackend(parseBackendChoice(options.backend ?? config.backend), process.env, commands);
   const deps = {

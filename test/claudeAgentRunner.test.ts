@@ -1,4 +1,4 @@
-import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { HookInput, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
 import { AgentError, READ_ONLY_TOOLS, type AgentRequest } from "../src/extract/AgentRunner.js";
 import { buildAgentOptions, toAgentResult } from "../src/extract/ClaudeAgentRunner.js";
@@ -21,6 +21,16 @@ describe("buildAgentOptions", () => {
     expect(options.tools).toEqual(READ_ONLY_TOOLS);
     expect(options.allowedTools).toEqual(READ_ONLY_TOOLS);
     expect(options.permissionMode).toBe("dontAsk");
+  });
+
+  it("confines every tool call to the platform root with a PreToolUse hook", async () => {
+    const hook = options.hooks?.PreToolUse?.[0]?.hooks[0];
+    expect(options.hooks?.PreToolUse).toHaveLength(1);
+    expect(options.hooks?.PreToolUse?.[0]?.matcher).toBeUndefined();
+    const input = { hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: "/etc/passwd" } } as HookInput;
+    expect(await hook!(input, "t", { signal: new AbortController().signal })).toMatchObject({
+      hookSpecificOutput: { permissionDecision: "deny" },
+    });
   });
 
   it("never loads the analyzed repository's settings or keeps a session", () => {

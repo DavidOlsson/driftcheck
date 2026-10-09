@@ -1,5 +1,6 @@
 import { query, type Options, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { AgentError, READ_ONLY_TOOLS, type AgentRequest, type AgentResult, type AgentRunner } from "./AgentRunner.js";
+import { confineToRoot } from "./confine.js";
 
 /** Pure, so the security-relevant options can be asserted in tests without calling the API. */
 export function buildAgentOptions(request: AgentRequest, clientApp: string): Options {
@@ -13,6 +14,8 @@ export function buildAgentOptions(request: AgentRequest, clientApp: string): Opt
     tools: [...READ_ONLY_TOOLS],
     allowedTools: [...READ_ONLY_TOOLS],
     permissionMode: "dontAsk",
+    // Allowed tools can otherwise read anywhere on the machine
+    hooks: { PreToolUse: [{ hooks: [confineToRoot(request.cwd)] }] },
     // Never load the analyzed repository's CLAUDE.md, settings or hooks: it must not be able to steer the agent
     settingSources: [],
     persistSession: false,

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONFIG_TEMPLATE, ConfigError, DEFAULT_MODEL, findFeature, parseConfig } from "../src/config/config.js";
+import { CONFIG_TEMPLATE, ConfigError, DEFAULT_MODEL, findFeature, parseConfig, parseModel } from "../src/config/config.js";
 
 const root = path.resolve("/projects/app");
 
@@ -48,8 +48,31 @@ describe("parseConfig", () => {
     expect(() => parseConfig(dup, root)).toThrowError(/Duplicate feature ids.*search/);
   });
 
+  it("caps the budget and turns, because the config may come from an untrusted pull request", () => {
+    expect(parseConfig(yaml("maxTurns: 200\nmaxBudgetUsd: 20"), root)).toMatchObject({ maxTurns: 200, maxBudgetUsd: 20 });
+    expect(() => parseConfig(yaml("maxTurns: 201"), root)).toThrowError(/maxTurns can be at most 200/);
+    expect(() => parseConfig(yaml("maxBudgetUsd: 20.01"), root)).toThrowError(/maxBudgetUsd can be at most 20/);
+  });
+
+  it("only accepts model ids, never something the claude CLI could read as a flag", () => {
+    for (const model of ["claude-opus-5-5", "claude-opus-5-5[1m]", "us.anthropic.claude-sonnet-5-5-v1:0", "claude-sonnet-5-5@20260101"]) {
+      expect(parseConfig(yaml(`model: "${model}"`), root).model).toBe(model);
+    }
+    for (const model of ["--dangerously-skip-permissions", "-p", "claude opus", ""]) {
+      expect(() => parseConfig(yaml(`model: "${model}"`), root)).toThrowError(/model/);
+    }
+  });
+
   it("parses the template that init writes", () => {
     expect(parseConfig(CONFIG_TEMPLATE, root).features.map((f) => f.id)).toEqual(["search"]);
+  });
+});
+
+describe("parseModel", () => {
+  it("validates a --model given on the command line like one in the config", () => {
+    expect(parseModel("claude-haiku-4-5")).toBe("claude-haiku-4-5");
+    expect(() => parseModel("--tools=Bash")).toThrowError(ConfigError);
+    expect(() => parseModel("--tools=Bash")).toThrowError(/Invalid --model/);
   });
 });
 
