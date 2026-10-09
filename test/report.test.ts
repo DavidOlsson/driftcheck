@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { estimateCostUsd } from "../src/llm/pricing.js";
 import type { Finding } from "../src/model/finding.js";
-import { renderCompareReport, usageLabel } from "../src/report/markdown.js";
+import { renderCompareReport } from "../src/report/markdown.js";
+import { usageLabel } from "../src/report/shared.js";
 import { finding, verifiedSpec } from "./helpers/specs.js";
 
 const report = (findings: Finding[], backend: "api" | "claude-code" = "api") =>

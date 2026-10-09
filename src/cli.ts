@@ -14,9 +14,10 @@ import { NodeCommandRunner } from "./io/process.js";
 import { BACKENDS, type Backend, type BackendChoice } from "./model/backend.js";
 import { selectBackend } from "./selectBackend.js";
 import { rerenderOverview, runOverview } from "./commands/overviewCommand.js";
-import { groupOf, type MatrixGroup } from "./inventory/presence.js";
+import type { MatrixGroup } from "./inventory/presence.js";
 import type { Usage } from "./extract/AgentRunner.js";
-import { usageLabel } from "./report/markdown.js";
+import { groupMatches } from "./report/overviewData.js";
+import { usageLabel } from "./report/shared.js";
 import { createRequire } from "node:module";
 
 // Read at runtime so it works both from src/ (tests) and dist/ (published package)
@@ -98,7 +99,8 @@ withClaudeOptions(
   const { config, deps } = await setupClaude(options);
   const result = await runOverview(config, deps);
   // Same grouping as the report, i.e. after the presence check
-  const count = (group: MatrixGroup) => result.matches.filter((m) => groupOf(m) === group).length;
+  const groups = groupMatches(result.matches);
+  const count = (group: MatrixGroup) => groups[group].length;
   console.log(
     `Features: ${count("both")} on both platforms, ${count("different_structure")} structured differently, ` +
       `${count("android_only")} Android only, ${count("ios_only")} iOS only, ${count("uncertain")} uncertain`,
