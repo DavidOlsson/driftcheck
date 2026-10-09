@@ -23,8 +23,8 @@ export const overviewPaths = (projectRoot: string) => ({
 /** Writes both report formats from the same data, so they never disagree. */
 export async function writeOverviewReports(projectRoot: string, input: OverviewReportInput): Promise<{ report: string; html: string }> {
   const paths = overviewPaths(projectRoot);
-  await writeText(paths.report, renderOverviewReport(input));
-  await writeText(paths.html, renderOverviewHtml(input));
+  await writeText(projectRoot, paths.report, renderOverviewReport(input));
+  await writeText(projectRoot, paths.html, renderOverviewHtml(input));
   return { report: paths.report, html: paths.html };
 }
 
@@ -85,7 +85,7 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
   const meta: RunDetails = { model: config.model, backend: deps.backend, usage, generatedAt: deps.now().toISOString() };
   // Stored so `check` can map changed files to features later, and so reports can be rebuilt for free
   const stored: StoredInventory = { android, ios, matches, meta };
-  await writeJson(paths.inventory, stored);
+  await writeJson(config.projectRoot, paths.inventory, stored);
   const files = await writeOverviewReports(config.projectRoot, { android, ios, matches, run: meta });
   return { matches, reportFile: files.report, htmlFile: files.html, usage };
 }

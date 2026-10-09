@@ -7,8 +7,23 @@ import { BACKENDS, type BackendChoice } from "../model/backend.js";
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 export const DEFAULT_MAX_TURNS = 40;
 export const DEFAULT_MAX_BUDGET_USD = 2;
+/**
+ * Upper limits, because the config lives in the analyzed repository and may come from an untrusted
+ * pull request: it must not be able to make a run arbitrarily expensive.
+ */
+export const MAX_TURNS_LIMIT = 200;
+export const MAX_BUDGET_USD_LIMIT = 20;
 export const CONFIG_DIR = ".driftcheck";
 export const CONFIG_FILE = "config.yml";
+
+/**
+ * Model ids are passed to the `claude` CLI as an argument, so a value starting with "-" could be read as a
+ * flag. Allows API ids, aliases and Bedrock/Vertex ids such as "claude-opus-5-5[1m]" or "...-v1:0".
+ */
+export const ModelName = z
+  .string()
+  .max(200)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:@/[\]-]*$/, "model must be a model id such as claude-sonnet-5-5");
 
 const PlatformConfig = z.object({
   /** Path to the platform's source root, relative to the config file's project root. */
@@ -27,11 +42,15 @@ const RawConfig = z.object({
   version: z.literal(1),
   platforms: z.object({ android: PlatformConfig, ios: PlatformConfig }),
   features: z.array(FeatureConfig).default([]),
-  model: z.string().min(1).default(DEFAULT_MODEL),
+  model: ModelName.default(DEFAULT_MODEL),
   /** How Claude is reached: "auto" uses ANTHROPIC_API_KEY if set, otherwise the Claude Code CLI. */
   backend: z.enum(BACKENDS).default("auto"),
-  maxTurns: z.number().int().positive().default(DEFAULT_MAX_TURNS),
-  maxBudgetUsd: z.number().positive().default(DEFAULT_MAX_BUDGET_USD),
+  maxTurns: z.number().int().positive().max(MAX_TURNS_LIMIT, `maxTurns can be at most ${MAX_TURNS_LIMIT}`).default(DEFAULT_MAX_TURNS),
+  maxBudgetUsd: z
+    .number()
+    .positive()
+    .max(MAX_BUDGET_USD_LIMIT, `maxBudgetUsd can be at most ${MAX_BUDGET_USD_LIMIT} per agent run`)
+    .default(DEFAULT_MAX_BUDGET_USD),
 });
 
 export type FeatureConfig = z.infer<typeof FeatureConfig>;
@@ -88,6 +107,13 @@ export function parseConfig(yamlText: string, projectRoot: string): Config {
   };
 }
 
+/** Validates a model given on the command line the same way as one in the config. */
+export function parseModel(value: string): string {
+  const result = ModelName.safeParse(value);
+  if (!result.success) throw new ConfigError(`Invalid --model "${value}": ${result.error.issues[0]?.message}`);
+  return result.data;
+}
+
 export function findFeature(config: Config, id: string): FeatureConfig {
   const feature = config.features.find((f) => f.id === id);
   if (!feature) {
@@ -120,6 +146,6 @@ features:
 
 # Optional overrides:
 # model: ${DEFAULT_MODEL}
-# maxTurns: ${DEFAULT_MAX_TURNS}
-# maxBudgetUsd: ${DEFAULT_MAX_BUDGET_USD}
+# maxTurns: ${DEFAULT_MAX_TURNS}  # at most ${MAX_TURNS_LIMIT}
+# maxBudgetUsd: ${DEFAULT_MAX_BUDGET_USD}  # USD per agent run, at most ${MAX_BUDGET_USD_LIMIT}
 `;

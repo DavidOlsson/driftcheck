@@ -1,6 +1,7 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CONFIG_DIR, CONFIG_FILE, CONFIG_TEMPLATE, ConfigError, parseConfig, type Config } from "../config/config.js";
+import { isWithin } from "../io/paths.js";
 import { PLATFORMS } from "../model/spec.js";
 
 export function configPath(projectRoot: string): string {
@@ -41,8 +42,17 @@ export async function loadConfig(projectRoot: string): Promise<Config> {
   return parseConfig(text, projectRoot);
 }
 
-/** Loads the config and checks that both platform roots exist, so later runs fail early and clearly. */
-export async function validateProject(projectRoot: string): Promise<Config> {
+export interface ValidateOptions {
+  /** Allow platform roots outside the project root. Only from the command line, never from the config. */
+  allowExternalPaths?: boolean;
+}
+
+/**
+ * Loads the config and checks that both platform roots exist, so later runs fail early and clearly.
+ * The config lives in the analyzed repository and may come from an untrusted pull request, so by default
+ * a platform root must lie inside the project: otherwise it could point the agent at e.g. the home directory.
+ */
+export async function validateProject(projectRoot: string, options: ValidateOptions = {}): Promise<Config> {
   const config = await loadConfig(projectRoot);
   const missing = [];
   for (const platform of PLATFORMS) {
@@ -50,6 +60,21 @@ export async function validateProject(projectRoot: string): Promise<Config> {
   }
   if (missing.length > 0) {
     throw new ConfigError(`Platform paths do not exist:\n${missing.map((m) => `  - ${m}`).join("\n")}`);
+  }
+  if (!options.allowExternalPaths) {
+    // Real paths, so a symlink inside the project cannot point outside it either
+    const realRoot = await realpath(projectRoot);
+    const outside = [];
+    for (const platform of PLATFORMS) {
+      const real = await realpath(config.platforms[platform]);
+      if (!isWithin(realRoot, real)) outside.push(`${platform}: ${real}`);
+    }
+    if (outside.length > 0) {
+      throw new ConfigError(
+        `Platform paths are outside the project root ${realRoot}:\n${outside.map((m) => `  - ${m}`).join("\n")}\n` +
+          "Move the project root up so it contains both apps (--project), or pass --allow-external-paths if this layout is intended.",
+      );
+    }
   }
   return config;
 }

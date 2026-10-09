@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +36,37 @@ describe("validate", () => {
 
     await mkdir(path.join(root, "ios"));
     await expect(validateProject(root)).resolves.toMatchObject({ model: expect.any(String) });
+  });
+});
+
+describe("platform paths outside the project", () => {
+  const writeConfig = (android: string, ios: string) =>
+    writeFile(configPath(root), `version: 1\nplatforms:\n  android: { path: "${android}" }\n  ios: { path: "${ios}" }\n`);
+
+  beforeEach(async () => {
+    await initProject(root);
+    await mkdir(path.join(root, "app", "ios"), { recursive: true });
+  });
+
+  it("are refused by default, also when absolute or reached through a symlink", async () => {
+    const sibling = await mkdtemp(path.join(os.tmpdir(), "driftcheck-sibling-"));
+    for (const android of ["..", sibling, os.homedir()]) {
+      await writeConfig(android, "app/ios");
+      await expect(validateProject(root)).rejects.toThrowError(/outside the project root[\s\S]*android:[\s\S]*--allow-external-paths/);
+    }
+    await symlink(sibling, path.join(root, "app", "android"));
+    await writeConfig("app/android", "app/ios");
+    await expect(validateProject(root)).rejects.toThrowError(/android: .*driftcheck-sibling-/);
+  });
+
+  it("are accepted inside the project, or outside it with an explicit opt-in", async () => {
+    await mkdir(path.join(root, "app", "android"));
+    await writeConfig("app/android", "app/ios");
+    await expect(validateProject(root)).resolves.toMatchObject({ platforms: { android: path.join(root, "app", "android") } });
+
+    const sibling = await mkdtemp(path.join(os.tmpdir(), "driftcheck-sibling-"));
+    await writeConfig(sibling, "app/ios");
+    await expect(validateProject(root, { allowExternalPaths: true })).resolves.toMatchObject({ platforms: { android: sibling } });
   });
 });
 

@@ -31,7 +31,7 @@ export async function runCompare(config: Config, featureId: string, deps: Claude
   const extracted = await runPerPlatform(deps.backend, async (platform): Promise<Extracted> => {
     const { spec, usage } = await extractFeature(deps.runner, config, feature, platform);
     const verified = await verifySpec(spec, new FsSourceReader(config.platforms[platform]));
-    await writeJson(paths.spec(platform), verified);
+    await writeJson(config.projectRoot, paths.spec(platform), verified);
     const ok = verified.items.filter((i) => i.verified).length;
     const cost = apiCost(deps.backend, ` ($${usage.costUsd.toFixed(2)})`);
     deps.log(`  ${platform}: ${verified.items.length} items, ${ok} verified against the source${cost}`);
@@ -44,8 +44,9 @@ export async function runCompare(config: Config, featureId: string, deps: Claude
   const compared = await compareSpecs(deps.llm, config.model, android, ios);
   usage = addUsage(usage, compared.usage);
 
-  await writeJson(paths.findings, compared.findings);
+  await writeJson(config.projectRoot, paths.findings, compared.findings);
   await writeText(
+    config.projectRoot,
     paths.report,
     renderCompareReport({
       featureName: feature.name,
