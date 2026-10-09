@@ -1,14 +1,19 @@
 import { ConfigError } from "./config/config.js";
 import { CLAUDE_COMMAND } from "./extract/claudeCli.js";
-import { CommandNotFoundError, type CommandRunner } from "./io/process.js";
+import { CommandNotFoundError, CommandTimeoutError, type CommandRunner } from "./io/process.js";
 
 import type { Backend, BackendChoice } from "./model/backend.js";
 
+const VERSION_TIMEOUT_MS = 30_000;
+
 export async function isClaudeCodeInstalled(commands: CommandRunner): Promise<boolean> {
   try {
-    return (await commands.run(CLAUDE_COMMAND, ["--version"])).exitCode === 0;
+    return (await commands.run(CLAUDE_COMMAND, ["--version"], { timeoutMs: VERSION_TIMEOUT_MS })).exitCode === 0;
   } catch (e) {
     if (e instanceof CommandNotFoundError) return false;
+    if (e instanceof CommandTimeoutError) {
+      throw new ConfigError(`"${CLAUDE_COMMAND} --version" did not answer within 30 seconds. Check that Claude Code runs in a terminal.`);
+    }
     throw e;
   }
 }

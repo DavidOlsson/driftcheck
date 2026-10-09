@@ -28,10 +28,26 @@ export async function runPerPlatform<T extends { usage: Usage }>(
 
   for (const r of [android, ios]) {
     if (r.status === "fulfilled") continue;
-    if (r.reason instanceof AgentError) {
-      throw new AgentError(`${r.reason.message}${apiCost(backend, ` (this run cost about $${usage.costUsd.toFixed(2)})`)}`, usage);
-    }
+    if (r.reason instanceof AgentError) throw withRunCost(backend, r.reason, usage);
     throw r.reason;
   }
   return { android: (android as PromiseFulfilledResult<T>).value, ios: (ios as PromiseFulfilledResult<T>).value, usage };
+}
+
+/**
+ * Runs a step that follows paid agent runs. If it fails, the error carries what the whole command has
+ * cost so far, not just the failed step.
+ */
+export async function afterPaidRuns<T>(backend: Backend, spent: Usage, step: () => Promise<T>): Promise<T> {
+  try {
+    return await step();
+  } catch (e) {
+    if (e instanceof AgentError) throw withRunCost(backend, e, addUsage(spent, e.usage));
+    throw e;
+  }
+}
+
+function withRunCost(backend: Backend, error: AgentError, usage: Usage): AgentError {
+  const cost = apiCost(backend, ` (this run cost about $${usage.costUsd.toFixed(2)})`);
+  return new AgentError(`${error.message}${cost}`, usage, { cause: error.cause });
 }

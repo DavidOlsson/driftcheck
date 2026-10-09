@@ -9,7 +9,7 @@ import { renderCompareReport } from "../report/markdown.js";
 import { storePaths, writeJson, writeText } from "../store/store.js";
 import { verifySpec, type VerifiedFeatureSpec } from "../verify/verify.js";
 import type { ClaudeDeps } from "./deps.js";
-import { apiCost, maxCostUsd, runPerPlatform } from "./perPlatform.js";
+import { afterPaidRuns, apiCost, maxCostUsd, runPerPlatform } from "./perPlatform.js";
 
 interface Extracted {
   verified: VerifiedFeatureSpec;
@@ -41,7 +41,7 @@ export async function runCompare(config: Config, featureId: string, deps: Claude
   const ios = extracted.ios.verified;
   let usage = extracted.usage;
 
-  const compared = await compareSpecs(deps.llm, config.model, android, ios);
+  const compared = await afterPaidRuns(deps.backend, usage, () => compareSpecs(deps.llm, config.model, android, ios));
   usage = addUsage(usage, compared.usage);
 
   await writeJson(config.projectRoot, paths.findings, compared.findings);

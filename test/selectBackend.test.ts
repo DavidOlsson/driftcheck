@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isClaudeCodeInstalled, selectBackend } from "../src/selectBackend.js";
 import { ConfigError } from "../src/config/config.js";
-import { CommandNotFoundError } from "../src/io/process.js";
+import { CommandNotFoundError, CommandTimeoutError } from "../src/io/process.js";
 import { FakeCommandRunner } from "./fakes/FakeCommandRunner.js";
 
 const installed = () => new FakeCommandRunner(() => ({ exitCode: 0, stdout: "2.1.252 (Claude Code)", stderr: "" }));
@@ -14,6 +14,13 @@ describe("isClaudeCodeInstalled", () => {
     expect(await isClaudeCodeInstalled(commands)).toBe(true);
     expect(commands.calls[0]).toMatchObject({ command: "claude", args: ["--version"] });
     expect(await isClaudeCodeInstalled(missing())).toBe(false);
+  });
+
+  it("gives up on a claude command that hangs, with a clear message", async () => {
+    const commands = new FakeCommandRunner(() => new CommandTimeoutError("too slow", 30_000));
+    await expect(isClaudeCodeInstalled(commands)).rejects.toThrowError(ConfigError);
+    await expect(isClaudeCodeInstalled(commands)).rejects.toThrowError(/did not answer within 30 seconds/);
+    expect(commands.calls[0]!.options.timeoutMs).toBe(30_000);
   });
 });
 

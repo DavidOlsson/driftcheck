@@ -1,5 +1,5 @@
 import { query, type Options, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { AgentError, READ_ONLY_TOOLS, type AgentRequest, type AgentResult, type AgentRunner } from "./AgentRunner.js";
+import { AgentError, READ_ONLY_TOOLS, type AgentRequest, type AgentResult, type AgentRunner, type Usage } from "./AgentRunner.js";
 import { confineToRoot } from "./confine.js";
 
 /** Pure, so the security-relevant options can be asserted in tests without calling the API. */
@@ -31,12 +31,16 @@ const ERROR_HINTS: Record<string, string> = {
   error_during_execution: "an error occurred while it was running",
 };
 
-export function toAgentResult(message: SDKResultMessage, cwd: string): AgentResult {
-  const usage = Object.values(message.modelUsage ?? {}).reduce(
+function toUsage(message: SDKResultMessage): Usage {
+  const tokens = Object.values(message.modelUsage ?? {}).reduce(
     (sum, u) => ({ inputTokens: sum.inputTokens + u.inputTokens, outputTokens: sum.outputTokens + u.outputTokens }),
     { inputTokens: 0, outputTokens: 0 },
   );
-  const fullUsage = { ...usage, costUsd: message.total_cost_usd };
+  return { ...tokens, costUsd: message.total_cost_usd };
+}
+
+export function toAgentResult(message: SDKResultMessage, cwd: string): AgentResult {
+  const fullUsage = toUsage(message);
 
   if (message.subtype !== "success") {
     const details = message.errors.length > 0 ? ` (${message.errors.join("; ")})` : "";
@@ -52,12 +56,27 @@ export function toAgentResult(message: SDKResultMessage, cwd: string): AgentResu
 }
 
 export class ClaudeAgentRunner implements AgentRunner {
-  constructor(private readonly clientApp: string) {}
+  constructor(
+    private readonly clientApp: string,
+    // Injectable so the error handling can be tested without calling the API
+    private readonly runQuery: typeof query = query,
+  ) {}
 
   async run(request: AgentRequest): Promise<AgentResult> {
     let result: SDKResultMessage | undefined;
-    for await (const message of query({ prompt: request.prompt, options: buildAgentOptions(request, this.clientApp) })) {
-      if (message.type === "result") result = message;
+    try {
+      for await (const message of this.runQuery({ prompt: request.prompt, options: buildAgentOptions(request, this.clientApp) })) {
+        if (message.type === "result") result = message;
+      }
+    } catch (e) {
+      // API failures arrive as result messages; a throw means the agent process itself failed to start or crashed
+      const usage = result ? toUsage(result) : undefined;
+      const message = e instanceof Error ? e.message : String(e);
+      throw new AgentError(
+        `The agent in ${request.cwd} could not run: ${message}. Check that ANTHROPIC_API_KEY is valid and try again.`,
+        usage,
+        { cause: e },
+      );
     }
     if (!result) throw new AgentError(`The agent in ${request.cwd} ended without a result`);
     return toAgentResult(result, request.cwd);

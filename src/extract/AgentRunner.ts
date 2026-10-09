@@ -88,7 +88,7 @@ export class AgentError extends Error {
   override name = "AgentError";
 
   /** What the failed run cost, so it can still be reported to the user. */
-  constructor(message: string, readonly usage: Usage = NO_USAGE) {
-    super(message);
+  constructor(message: string, readonly usage: Usage = NO_USAGE, options?: ErrorOptions) {
+    super(message, options);
   }
 }

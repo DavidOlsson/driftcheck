@@ -1,6 +1,6 @@
 import type { CommandRunner } from "../io/process.js";
 import type { AgentRequest, AgentResult, AgentRunner } from "./AgentRunner.js";
-import { READ_ONLY_TOOLS_ARG, runClaudeCli } from "./claudeCli.js";
+import { AGENT_TIMEOUT_MS, READ_ONLY_TOOLS_ARG, runClaudeCli } from "./claudeCli.js";
 
 /**
  * Runs the read-only agent through the user's Claude Code CLI, so it uses their Claude subscription.
@@ -18,6 +18,7 @@ export class ClaudeCliAgentRunner implements AgentRunner {
       model: request.model,
       maxBudgetUsd: request.maxBudgetUsd,
       tools: READ_ONLY_TOOLS_ARG,
+      timeoutMs: AGENT_TIMEOUT_MS,
     });
   }
 }
