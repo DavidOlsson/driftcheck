@@ -31,7 +31,6 @@ export async function runCompare(config: Config, featureId: string, deps: Claude
   const extracted = await runPerPlatform(deps.backend, async (platform): Promise<Extracted> => {
     const { spec, usage } = await extractFeature(deps.runner, config, feature, platform);
     const verified = await verifySpec(spec, new FsSourceReader(config.platforms[platform]));
-    await writeJson(config.projectRoot, paths.spec(platform), verified);
     const ok = verified.items.filter((i) => i.verified).length;
     const cost = apiCost(deps.backend, ` ($${usage.costUsd.toFixed(2)})`);
     deps.log(`  ${platform}: ${verified.items.length} items, ${ok} verified against the source${cost}`);
@@ -44,6 +43,9 @@ export async function runCompare(config: Config, featureId: string, deps: Claude
   const compared = await afterPaidRuns(deps.backend, usage, () => compareSpecs(deps.llm, config.model, android, ios));
   usage = addUsage(usage, compared.usage);
 
+  // Written only after every step succeeded, so the stored specs and findings always belong to the same run
+  await writeJson(config.projectRoot, paths.spec("android"), android);
+  await writeJson(config.projectRoot, paths.spec("ios"), ios);
   await writeJson(config.projectRoot, paths.findings, compared.findings);
   await writeText(
     config.projectRoot,
