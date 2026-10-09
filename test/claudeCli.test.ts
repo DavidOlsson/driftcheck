@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AgentError } from "../src/extract/AgentRunner.js";
+import { AgentError, READ_ONLY_TOOLS } from "../src/extract/AgentRunner.js";
+import { buildAgentOptions } from "../src/extract/ClaudeAgentRunner.js";
 import { ClaudeCliAgentRunner } from "../src/extract/ClaudeCliAgentRunner.js";
 import { buildCliArgs, cliEnv, parseCliOutput } from "../src/extract/claudeCli.js";
 import { ClaudeCliLlmClient } from "../src/llm/ClaudeCliLlmClient.js";
@@ -160,6 +161,17 @@ describe("ClaudeCliAgentRunner", () => {
     expect(call.options.input).toBe("describe search");
     expect(call.options.env?.ANTHROPIC_API_KEY).toBeUndefined();
     expect(result.output).toEqual({ feature: "search" });
+  });
+
+  it("gives the agent exactly the same read-only tools as the API backend", async () => {
+    const commands = new FakeCommandRunner(() => cliSuccess({}));
+    const request = { cwd: "/r", systemPrompt: "s", prompt: "p", outputSchema: {}, model: "m", maxTurns: 1, maxBudgetUsd: 1 };
+    await new ClaudeCliAgentRunner(commands).run(request);
+    const sdk = buildAgentOptions(request, "driftcheck/test");
+    const args = commands.calls[0]!.args;
+    expect(flag(args, "--tools")!.split(",")).toEqual(sdk.tools);
+    expect(flag(args, "--allowedTools")!.split(",")).toEqual(sdk.allowedTools);
+    expect(sdk.tools).toEqual([...READ_ONLY_TOOLS]);
   });
 });
 
