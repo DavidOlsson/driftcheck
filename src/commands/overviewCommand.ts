@@ -7,6 +7,7 @@ import { extractInventory, matchInventories, verifyInventory, type VerifiedInven
 import { applyChecks, candidatesFor, runPresenceCheck } from "../inventory/presence.js";
 import { BACKEND_DESCRIPTIONS } from "../model/backend.js";
 import { StoredInventory, type FeatureMatch, type RunDetails } from "../model/inventory.js";
+import { PLATFORMS } from "../model/spec.js";
 import { renderOverviewHtml } from "../report/overviewHtml.js";
 import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
@@ -77,31 +78,9 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
   const matched = await matchInventories(deps.llm, config.model, android, ios);
   usage = addUsage(usage, matched.usage);
 
-  // Look for each platform-only feature on the other platform before calling it missing
-  const describe = (inventory: VerifiedInventory, id: string | null) =>
-    inventory.features.find((f) => f.id === id)?.description ?? "";
-  const checkResults = await Promise.allSettled(
-    (["android", "ios"] as const).map(async (platform) => {
-      const candidates = candidatesFor(platform, matched.matches, (row) =>
-        platform === "android" ? describe(ios, row.ios) : describe(android, row.android),
-      );
-      if (candidates.length === 0) return { checks: new Map(), usage: NO_USAGE };
-      deps.log(`  checking ${candidates.length} features that ${platform} seems to lack…`);
-      return runPresenceCheck(deps.runner, config, platform, candidates, new FsSourceReader(config.platforms[platform]));
-    }),
-  );
-  let matches = matched.matches;
-  for (const [i, r] of checkResults.entries()) {
-    const platform = i === 0 ? "android" : "ios";
-    if (r.status === "fulfilled") {
-      usage = addUsage(usage, r.value.usage);
-      matches = applyChecks(matches, r.value.checks);
-    } else {
-      // A failed check leaves those rows as "uncertain" instead of failing the whole overview
-      if (r.reason instanceof AgentError) usage = addUsage(usage, r.reason.usage);
-      deps.log(`  ${platform} presence check failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
-    }
-  }
+  const checked = await runPresenceChecks(config, deps, android, ios, matched.matches);
+  usage = addUsage(usage, checked.usage);
+  const matches = checked.matches;
 
   const meta: RunDetails = { model: config.model, backend: deps.backend, usage, generatedAt: deps.now().toISOString() };
   // Stored so `check` can map changed files to features later, and so reports can be rebuilt for free
@@ -109,4 +88,42 @@ export async function runOverview(config: Config, deps: ClaudeDeps): Promise<Ove
   await writeJson(paths.inventory, stored);
   const files = await writeOverviewReports(config.projectRoot, { android, ios, matches, run: meta });
   return { matches, reportFile: files.report, htmlFile: files.html, usage };
+}
+
+/**
+ * Looks for each platform-only feature on the other platform before it is reported as missing.
+ * A failed check leaves its rows "uncertain" instead of failing the whole overview.
+ */
+async function runPresenceChecks(
+  config: Config,
+  deps: ClaudeDeps,
+  android: VerifiedInventory,
+  ios: VerifiedInventory,
+  rows: FeatureMatch[],
+): Promise<{ matches: FeatureMatch[]; usage: Usage }> {
+  const description = (inventory: VerifiedInventory, id: string | null) =>
+    inventory.features.find((f) => f.id === id)?.description ?? "";
+  const results = await Promise.allSettled(
+    PLATFORMS.map(async (platform) => {
+      const candidates = candidatesFor(platform, rows, (row) =>
+        platform === "android" ? description(ios, row.ios) : description(android, row.android),
+      );
+      if (candidates.length === 0) return { checks: new Map(), usage: NO_USAGE };
+      deps.log(`  checking ${candidates.length} features that ${platform} seems to lack…`);
+      return runPresenceCheck(deps.runner, config, platform, candidates, new FsSourceReader(config.platforms[platform]));
+    }),
+  );
+
+  let matches = rows;
+  let usage = NO_USAGE;
+  for (const [i, r] of results.entries()) {
+    if (r.status === "fulfilled") {
+      usage = addUsage(usage, r.value.usage);
+      matches = applyChecks(matches, r.value.checks);
+    } else {
+      if (r.reason instanceof AgentError) usage = addUsage(usage, r.reason.usage);
+      deps.log(`  ${PLATFORMS[i]} presence check failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+    }
+  }
+  return { matches, usage };
 }

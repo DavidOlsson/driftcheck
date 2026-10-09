@@ -225,6 +225,25 @@ describe("runOverview", () => {
     expect(logs[0]).toContain(`at most about $${maxCostUsd(config).toFixed(2)}`);
     expect(logs.some((l) => l.includes("android: 3 features, 1 with a verified entry point"))).toBe(true);
   });
+
+  it("keeps going when a presence check fails, leaving its rows uncertain and counting its usage", async () => {
+    const config = await validateProject(root);
+    const runner = new FakeAgentRunner((r: AgentRequest) => {
+      if (r.systemPrompt === PRESENCE_SYSTEM_PROMPT) {
+        if (r.cwd.endsWith("ios")) throw new AgentError("budget reached", { inputTokens: 0, outputTokens: 0, costUsd: 0.5 });
+        return { answers: [] };
+      }
+      return r.cwd.endsWith("android") ? androidInventory : iosInventory;
+    });
+    const llm = new FakeLlmClient(() => ({ matches: [match({ id: "search", name: "Search", android: "search", ios: "find" })] }));
+    const logs: string[] = [];
+    const result = await runOverview(config, { backend: "api", runner, llm, now: () => new Date(), log: (m) => logs.push(m) });
+
+    expect(logs).toContain("  ios presence check failed: budget reached");
+    expect(result.matches.find((m) => m.id === "voice")?.check).toBeUndefined();
+    // Two inventories and one presence check at 0.01 each, matching at 0.004, and the failed check's 0.5
+    expect(result.usage.costUsd).toBeCloseTo(0.534);
+  });
 });
 
 describe("presence check", () => {
