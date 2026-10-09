@@ -6,7 +6,7 @@ import { FeatureInventory, MatchOutput, type FeatureMatch, type MatchRow } from 
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import type { Platform } from "../model/spec.js";
 import { runStructuredAgent } from "../extract/structured.js";
-import { checkEvidence, type VerifiedEvidence } from "../verify/verify.js";
+import { cachedReader, checkEvidence, type VerifiedEvidence } from "../verify/verify.js";
 
 export const INVENTORY_JSON_SCHEMA = toOutputJsonSchema(FeatureInventory);
 
@@ -51,7 +51,8 @@ export interface VerifiedInventory extends Omit<FeatureInventory, "features"> {
   features: (FeatureInventory["features"][number] & { entryPoints: VerifiedEvidence[]; verified: boolean })[];
 }
 
-export async function verifyInventory(inventory: FeatureInventory, reader: SourceReader): Promise<VerifiedInventory> {
+export async function verifyInventory(inventory: FeatureInventory, source: SourceReader): Promise<VerifiedInventory> {
+  const reader = cachedReader(source);
   const features = await Promise.all(
     inventory.features.map(async (f) => {
       const entryPoints = await Promise.all(

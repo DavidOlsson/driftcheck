@@ -47,24 +47,33 @@ export function checkEvidence(fileText: string | null, evidence: Evidence): Evid
 }
 
 /**
+ * Many pieces of evidence cite the same file, so each file is read once. The promise is cached, not the
+ * text, so parallel checks of the same file share one read.
+ */
+export function cachedReader(reader: SourceReader): SourceReader {
+  const cache = new Map<string, Promise<string | null>>();
+  return {
+    read(file) {
+      let pending = cache.get(file);
+      if (!pending) {
+        pending = reader.read(file);
+        cache.set(file, pending);
+      }
+      return pending;
+    },
+  };
+}
+
+/**
  * Checks every piece of evidence against the actual source. This is the guard against
  * hallucinated file names, line numbers and values: reports show what was verified.
  */
 export async function verifySpec(spec: FeatureSpec, reader: SourceReader): Promise<VerifiedFeatureSpec> {
-  const cache = new Map<string, Promise<string | null>>();
-  const readCached = (file: string) => {
-    let pending = cache.get(file);
-    if (!pending) {
-      pending = reader.read(file);
-      cache.set(file, pending);
-    }
-    return pending;
-  };
-
+  const cached = cachedReader(reader);
   const items = await Promise.all(
     spec.items.map(async (item) => {
       const evidence = await Promise.all(
-        item.evidence.map(async (e) => ({ ...e, status: checkEvidence(await readCached(e.file), e) })),
+        item.evidence.map(async (e) => ({ ...e, status: checkEvidence(await cached.read(e.file), e) })),
       );
       return { ...item, evidence, verified: evidence.some((e) => e.status === "verified") };
     }),

@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { FsSourceReader, resolveInsideRoot, type SourceReader } from "../src/io/fileReader.js";
 import type { FeatureSpec } from "../src/model/spec.js";
-import { checkEvidence, summarizeVerification, verifySpec } from "../src/verify/verify.js";
+import { cachedReader, checkEvidence, summarizeVerification, verifySpec } from "../src/verify/verify.js";
 
 const SOURCE = [
   "class SearchViewModel {",
@@ -21,6 +21,17 @@ class MemoryReader implements SourceReader {
     return this.files[file] ?? null;
   }
 }
+
+describe("cachedReader", () => {
+  it("reads each file once, even when the same file is requested in parallel", async () => {
+    const source = new MemoryReader({ "Search.kt": SOURCE });
+    const reader = cachedReader(source);
+    const texts = await Promise.all([reader.read("Search.kt"), reader.read("Search.kt"), reader.read("Search.kt"), reader.read("Missing.kt")]);
+    expect(texts.slice(0, 3)).toEqual([SOURCE, SOURCE, SOURCE]);
+    expect(texts[3]).toBeNull();
+    expect(source.reads).toEqual(["Search.kt", "Missing.kt"]);
+  });
+});
 
 describe("checkEvidence", () => {
   it("verifies a quote on the cited line, ignoring whitespace differences", () => {

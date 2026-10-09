@@ -5,7 +5,7 @@ import type { SourceReader } from "../io/fileReader.js";
 import { toOutputJsonSchema } from "../model/jsonSchema.js";
 import { PresenceOutput, type FeatureMatch, type PresenceAnswer, type PresenceCheck } from "../model/inventory.js";
 import type { Platform } from "../model/spec.js";
-import { checkEvidence } from "../verify/verify.js";
+import { cachedReader, checkEvidence } from "../verify/verify.js";
 
 /**
  * Inventories made by two separate agents differ in granularity, so "only on Android" often means
@@ -50,7 +50,8 @@ export function candidatesFor(
 }
 
 /** Claims of presence must be backed by verified evidence; otherwise they are only "unverified". */
-export async function toChecks(platform: Platform, answers: PresenceAnswer[], reader: SourceReader): Promise<Map<string, PresenceCheck>> {
+export async function toChecks(platform: Platform, answers: PresenceAnswer[], source: SourceReader): Promise<Map<string, PresenceCheck>> {
+  const reader = cachedReader(source);
   const checks = new Map<string, PresenceCheck>();
   for (const answer of answers) {
     if (checks.has(answer.rowId)) continue;

@@ -122,6 +122,14 @@ describe("verifyInventory", () => {
     const verified = await verifyInventory(androidInventory, reader);
     expect(verified.features.map((f) => f.verified)).toEqual([true, false, false]);
   });
+
+  it("reads each cited file once", async () => {
+    const reads: string[] = [];
+    const reader = { read: async (file: string) => (reads.push(file), null) };
+    const twice = { ...androidInventory, features: [...androidInventory.features, ...androidInventory.features] };
+    await verifyInventory(twice, reader);
+    expect(reads).toHaveLength(new Set(reads).size);
+  });
 });
 
 describe("renderOverviewReport", () => {
@@ -245,6 +253,18 @@ describe("presence check", () => {
       ["b", "unverified"],
       ["c", "not_found"],
     ]);
+  });
+
+  it("reads a file once when several answers cite it", async () => {
+    const reads: string[] = [];
+    const reader = { read: async (file: string) => (reads.push(file), "class Real") };
+    const evidence = [{ file: "Real.swift", line: 1, quote: "class Real" }];
+    await toChecks(
+      "ios",
+      ["a", "b", "c"].map((rowId) => ({ rowId, status: "part_of" as const, name: "Real", note: "", evidence })),
+      reader,
+    );
+    expect(reads).toEqual(["Real.swift"]);
   });
 
   it("groups rows by the check result", () => {
