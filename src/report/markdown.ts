@@ -11,7 +11,7 @@ export interface CompareReportInput {
   ios: VerifiedFeatureSpec;
   findings: Finding[];
   model: string;
-  /** Subscription runs are not billed per token, so the cost is shown as an API-equivalent estimate. */
+  /** Decides how usage is shown: estimated dollars for API keys, plan limits for Claude Code subscriptions. */
   backend: Backend;
   usage: Usage;
   /** ISO timestamp, passed in so rendering stays deterministic in tests. */
