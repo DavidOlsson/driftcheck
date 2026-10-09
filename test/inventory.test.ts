@@ -4,6 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { initProject, validateProject } from "../src/commands/project.js";
 import { overviewPaths, runOverview } from "../src/commands/overviewCommand.js";
+import { maxCostUsd } from "../src/commands/perPlatform.js";
 import { AgentError, type AgentRequest } from "../src/extract/AgentRunner.js";
 import {
   completeMatches,
@@ -209,7 +210,7 @@ describe("runOverview", () => {
     expect(stored.android.features[0].verified).toBe(true);
     expect(stored.matches[0].id).toBe("search");
     expect(await readFile(result.reportFile, "utf8")).toContain("# Feature overview");
-    expect(logs[0]).toContain("at most about $");
+    expect(logs[0]).toContain(`at most about $${maxCostUsd(config).toFixed(2)}`);
     expect(logs.some((l) => l.includes("android: 3 features, 1 with a verified entry point"))).toBe(true);
   });
 });

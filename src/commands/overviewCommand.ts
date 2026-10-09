@@ -12,6 +12,7 @@ import { renderOverviewHtml } from "../report/overviewHtml.js";
 import { renderOverviewReport, type OverviewReportInput } from "../report/overviewMarkdown.js";
 import { writeJson, writeText } from "../store/store.js";
 import type { ClaudeDeps } from "./deps.js";
+import { apiCost, maxCostUsd, runPerPlatform } from "./perPlatform.js";
 
 export const overviewPaths = (projectRoot: string) => ({
   inventory: path.join(projectRoot, CONFIG_DIR, "inventory.json"),
@@ -74,34 +75,19 @@ export interface OverviewResult {
 
 export async function runOverview(config: Config, deps: ClaudeDeps): Promise<OverviewResult> {
   const paths = overviewPaths(config.projectRoot);
-  const limit = deps.backend === "api" ? ` (at most about $${(2 * config.maxBudgetUsd + 0.5).toFixed(2)})` : "";
+  const limit = apiCost(deps.backend, ` (at most about $${maxCostUsd(config).toFixed(2)})`);
   deps.log(`Mapping features with ${config.model} via ${BACKEND_DESCRIPTIONS[deps.backend]}${limit}…`);
 
-  const results = await Promise.allSettled(
-    (["android", "ios"] as const).map(async (platform): Promise<Inventoried> => {
-      const { inventory, usage } = await extractInventory(deps.runner, config, platform);
-      const verified = await verifyInventory(inventory, new FsSourceReader(config.platforms[platform]));
-      const ok = verified.features.filter((f) => f.verified).length;
-      deps.log(`  ${platform}: ${verified.features.length} features, ${ok} with a verified entry point`);
-      return { verified, usage };
-    }),
-  );
-  const usageOf = (r: PromiseSettledResult<Inventoried>): Usage =>
-    r.status === "fulfilled" ? r.value.usage : r.reason instanceof AgentError ? r.reason.usage : NO_USAGE;
-  let usage = results.map(usageOf).reduce(addUsage, NO_USAGE);
-
-  const failure = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
-  if (failure) {
-    if (failure.reason instanceof AgentError) {
-      const cost = deps.backend === "api" ? ` (this run cost about $${usage.costUsd.toFixed(2)})` : "";
-      throw new AgentError(`${failure.reason.message}${cost}`, usage);
-    }
-    throw failure.reason;
-  }
-  const [android, ios] = results.map((r) => (r as PromiseFulfilledResult<Inventoried>).value.verified) as [
-    VerifiedInventory,
-    VerifiedInventory,
-  ];
+  const inventoried = await runPerPlatform(deps.backend, async (platform): Promise<Inventoried> => {
+    const { inventory, usage } = await extractInventory(deps.runner, config, platform);
+    const verified = await verifyInventory(inventory, new FsSourceReader(config.platforms[platform]));
+    const ok = verified.features.filter((f) => f.verified).length;
+    deps.log(`  ${platform}: ${verified.features.length} features, ${ok} with a verified entry point`);
+    return { verified, usage };
+  });
+  const android = inventoried.android.verified;
+  const ios = inventoried.ios.verified;
+  let usage = inventoried.usage;
 
   const matched = await matchInventories(deps.llm, config.model, android, ios);
   usage = addUsage(usage, matched.usage);
