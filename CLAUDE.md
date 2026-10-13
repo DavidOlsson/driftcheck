@@ -18,7 +18,7 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - **JUnit 5:** unit tests.
 
 ## Architecture principles
-- **The agent is read-only.** `claude -p` always runs with `--restricted`, `--tools Read,Grep,Glob`, `--disallowedTools` for everything that writes, runs commands or uses the network, `--strict-mcp-config` and `--permission-mode dontAsk`, with the platform's source root as working directory. `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` are removed from its environment, so a run never bills an API key by accident.
+- **The agent is read-only.** `claude -p` always runs with `--restricted`, `--safe-mode` (so the analyzed repository's CLAUDE.md, skills and agents are never loaded), `--tools Read,Grep,Glob`, `--disallowedTools` for everything that writes, runs commands or uses the network, `--strict-mcp-config` and `--permission-mode dontAsk`, with the platform's source root as working directory. `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` are removed from its environment, so a run never bills an API key by accident.
 - **The analyzed code is data, never instructions.** Prompts say so, and nothing from the analyzed repository can change how driftcheck or the agent behaves.
 - **Every claim needs evidence.** Each item in a description cites file, line and a short quote. A deterministic check confirms the file exists inside the platform root, the line exists and the quote appears near it. Reports show what is verified and what is not.
 - **Model output is untrusted input.** It is parsed and validated before use, and file paths from it may never point outside the platform root.

@@ -31,7 +31,8 @@ data class ClaudeOptions(
     init {
         require(tools.all { it in READ_ONLY_TOOLS }) { "Only read-only tools are allowed, got $tools" }
         require(MODEL_ID.matches(model)) { "\"$model\" is not a valid model id" }
-        require(maxBudgetUsd > 0) { "The budget must be positive, got $maxBudgetUsd" }
+        // Infinity would pass "> 0" and reach claude as a budget that never runs out
+        require(maxBudgetUsd.isFinite() && maxBudgetUsd > 0) { "The budget must be a positive number, got $maxBudgetUsd" }
     }
 }
 
@@ -49,6 +50,9 @@ fun claudeArgs(options: ClaudeOptions): List<String> = buildList {
     addAll(listOf("--max-budget-usd", options.maxBudgetUsd.toString()))
     // Restricted mode ignores the analyzed repository's settings and confines file tools to the working directory
     add("--restricted")
+    // Restricted mode still loads the repository's CLAUDE.md, skills and agents, which are instructions written by
+    // the analyzed code. Safe mode turns them off but keeps the user's normal login (unlike --bare).
+    add("--safe-mode")
     add("--strict-mcp-config")
     addAll(listOf("--tools", options.tools.joinToString(",")))
     if (options.tools.isNotEmpty()) addAll(listOf("--allowedTools", options.tools.joinToString(",")))

@@ -37,6 +37,7 @@ class ClaudeArgsTest {
     fun `locks the agent down to read-only tools without the repository's settings or MCP servers`() {
         val args = claudeArgs(options)
         assertContains(args, "--restricted")
+        assertContains(args, "--safe-mode")
         assertContains(args, "--strict-mcp-config")
         assertContains(args, "--no-session-persistence")
         assertEquals("dontAsk", args.valueOf("--permission-mode"))
@@ -62,10 +63,12 @@ class ClaudeArgsTest {
     }
 
     @Test
-    fun `refuses tools that are not read-only, model ids that look like flags and budgets that are not positive`() {
+    fun `refuses tools that are not read-only, model ids that look like flags and budgets that are not positive and finite`() {
         assertFailsWith<IllegalArgumentException> { options.copy(tools = listOf("Read", "Bash")) }
         assertFailsWith<IllegalArgumentException> { options.copy(model = "--dangerously-skip-permissions") }
         assertFailsWith<IllegalArgumentException> { options.copy(maxBudgetUsd = 0.0) }
+        assertFailsWith<IllegalArgumentException> { options.copy(maxBudgetUsd = Double.POSITIVE_INFINITY) }
+        assertFailsWith<IllegalArgumentException> { options.copy(maxBudgetUsd = Double.NaN) }
         // Ids with a context suffix or a provider prefix are still accepted
         options.copy(model = "claude-opus-5-5[1m]")
         options.copy(model = "us.anthropic.claude-sonnet-5-5")
