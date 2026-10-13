@@ -7,8 +7,12 @@ data class CommandResult(val exitCode: Int, val stdout: String, val stderr: Stri
 
 class CommandNotFoundException(val command: String) : Exception("\"$command\" was not found on PATH")
 
-class CommandTimeoutException(val command: String, val timeout: Duration) :
-    Exception("\"$command\" did not finish within $timeout and was stopped")
+/** [stderr] is whatever the program wrote before it was stopped; only its end goes into the message. */
+class CommandTimeoutException(val command: String, val timeout: Duration, val stderr: String = "") :
+    Exception(
+        "\"$command\" did not finish within $timeout and was stopped" +
+            if (stderr.isBlank()) "" else ". Its last error output:\n${stderr.trim().takeLast(2000)}",
+    )
 
 /**
  * Runs an external program, such as `claude`. Behind an interface so everything that runs a program can be

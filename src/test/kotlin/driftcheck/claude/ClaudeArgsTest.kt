@@ -34,6 +34,13 @@ class ClaudeArgsTest {
     }
 
     @Test
+    fun `writes the budget without scientific notation`() {
+        assertEquals("0.0001", claudeArgs(options.copy(maxBudgetUsd = 0.0001)).valueOf("--max-budget-usd"))
+        assertEquals("10000000", claudeArgs(options.copy(maxBudgetUsd = 1e7)).valueOf("--max-budget-usd"))
+        assertEquals("2", claudeArgs(options.copy(maxBudgetUsd = 2.0)).valueOf("--max-budget-usd"))
+    }
+
+    @Test
     fun `locks the agent down to read-only tools without the repository's settings or MCP servers`() {
         val args = claudeArgs(options)
         assertContains(args, "--restricted")

@@ -1,5 +1,6 @@
 package driftcheck.process
 
+import java.io.IOException
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -12,7 +13,7 @@ import kotlin.time.measureTime
 
 // These start real, harmless programs (cat, sh, sleep), so they run on macOS and Linux
 class ProcessCommandRunnerTest {
-    private val runner = ProcessCommandRunner(killGrace = 1.seconds)
+    private val runner = ProcessCommandRunner(killGrace = 1.seconds, outputGrace = 1.seconds)
     private val dir = Files.createTempDirectory("driftcheck-cwd").toRealPath()
     private val env = System.getenv()
 
@@ -54,6 +55,33 @@ class ProcessCommandRunnerTest {
             assertContains(error.message!!, "did not finish within 200ms")
         }
         assertFalse(elapsed > 5.seconds, "the program was not stopped in time: $elapsed")
+    }
+
+    @Test
+    fun `includes what a timed-out program wrote to stderr`() {
+        // exec, so the stop request reaches sleep itself and nothing is left holding stderr open
+        val error = assertFailsWith<CommandTimeoutException> {
+            runner.run("sh", listOf("-c", "echo stuck here >&2; exec sleep 30"), timeout = 500.milliseconds, cwd = dir, env = env)
+        }
+        assertEquals("stuck here\n", error.stderr)
+        assertContains(error.message!!, "stuck here")
+    }
+
+    @Test
+    fun `does not wait forever for output a leftover child process keeps open`() {
+        // The short sleep makes sure the reader is already blocked when sh exits. Otherwise the JDK drains and
+        // closes the pipe on exit by itself, and the case this test is about does not happen.
+        val elapsed = measureTime {
+            val error = assertFailsWith<IOException> { runner.run("sh", listOf("-c", "sleep 5 & sleep 0.5"), timeout = 10.seconds, cwd = dir, env = env) }
+            assertContains(error.message!!, "output was still open")
+        }
+        assertFalse(elapsed > 4.seconds, "waited too long for the output: $elapsed")
+    }
+
+    @Test
+    fun `reports a missing working directory as such, not as a missing program`() {
+        val error = assertFailsWith<IllegalArgumentException> { runner.run("cat", emptyList(), timeout = 10.seconds, cwd = dir.resolve("missing"), env = env) }
+        assertContains(error.message!!, "working directory")
     }
 
     @Test
