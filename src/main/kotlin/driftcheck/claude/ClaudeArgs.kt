@@ -19,6 +19,9 @@ val REMOVED_ENV_PREFIXES = listOf("ANTHROPIC_", "CLAUDE_CODE_USE_")
 /** Model ids start with a letter or digit, so a value from a config file can never be read as a flag. */
 private val MODEL_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._:@/\\[\\]-]*$")
 
+/** Accepts API ids, aliases and ids with a context suffix or provider prefix, such as "claude-opus-5-5[1m]". */
+fun isModelId(value: String): Boolean = value.length <= 200 && MODEL_ID.matches(value)
+
 /**
  * Everything that varies between runs of `claude -p`. There is deliberately no prompt here: the prompt is
  * written to stdin, never put on the command line, where other users on the machine could read it.
@@ -34,7 +37,7 @@ data class ClaudeOptions(
 ) {
     init {
         require(tools.all { it in READ_ONLY_TOOLS }) { "Only read-only tools are allowed, got $tools" }
-        require(MODEL_ID.matches(model)) { "\"$model\" is not a valid model id" }
+        require(isModelId(model)) { "\"$model\" is not a valid model id" }
         // Infinity would pass "> 0" and reach claude as a budget that never runs out
         require(maxBudgetUsd.isFinite() && maxBudgetUsd > 0) { "The budget must be a positive number, got $maxBudgetUsd" }
     }
