@@ -1,5 +1,7 @@
 plugins {
     kotlin("jvm") version "2.4.21"
+    // Reads the config and validates all model output against the expected structure
+    kotlin("plugin.serialization") version "2.4.21"
     application
 }
 
@@ -11,6 +13,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     testImplementation(kotlin("test"))
 }
 
