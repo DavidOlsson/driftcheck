@@ -4,21 +4,85 @@
 
 Many teams build the same app twice, in Kotlin for Android and in Swift for iOS. Over time the two drift apart: different timeouts, limits, validation, error handling, or a feature that only exists on one side. Nobody notices until a user or a tester does.
 
-driftcheck will let Claude read how one feature is implemented in each app, describe both in the same structure, and report the differences. Every claim comes with a file and line, which is checked against the source code, so the report shows what is verified.
+driftcheck lets Claude read how one feature is implemented in each app, describe both in the same structure, and report the differences. Every claim comes with a file, line and quote, which is checked against the source code, so the report shows what is verified.
 
 It runs locally through your own [Claude Code](https://claude.com/claude-code) login. No API key is needed, and your code is only sent to Anthropic.
 
-> 🚧 **Under development.** The foundation is in place, but there is no command that compares apps yet.
+## Install
 
-## Build
+Needs JDK 17 or newer and [Claude Code](https://claude.com/claude-code), installed and logged in (`claude`).
 
-Needs JDK 17 or newer. The Gradle wrapper downloads Gradle itself.
+Download `driftcheck-<version>.zip` from GitHub Releases, unzip it and put its `bin` directory on your `PATH`. Or build it yourself:
 
 ```bash
-./gradlew build          # compiles and runs the tests
 ./gradlew installDist    # builds a runnable copy in build/install/driftcheck
 build/install/driftcheck/bin/driftcheck --version
 ```
+
+## Usage
+
+Run it in a directory that contains (or is above) both apps:
+
+```bash
+driftcheck init                      # creates .driftcheck/config.json
+driftcheck compare search            # describes "search" on both platforms and reports the differences
+driftcheck verify .driftcheck/specs/search/android.json   # checks a description's evidence again
+driftcheck report search             # rebuilds the report from stored results, without Claude
+```
+
+`.driftcheck/config.json` points at the two apps and lists the features to compare:
+
+```json
+{
+  "version": 1,
+  "platforms": {
+    "android": { "path": "android" },
+    "ios": { "path": "ios" }
+  },
+  "features": [
+    { "id": "search", "name": "Search", "hints": ["SearchFragment"] }
+  ],
+  "model": "claude-sonnet-5-5",
+  "maxBudgetUsd": 2
+}
+```
+
+`hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
+
+`compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. It writes:
+
+- `.driftcheck/specs/<feature>/{android,ios}.json`: the verified descriptions
+- `.driftcheck/findings/<feature>.json`: the findings, with the model and usage of the run
+- `.driftcheck/reports/<feature>.md`: a readable report with behavior differences, possible bugs, features on one platform only, UI differences, what is the same, questions for the team, and how it was checked
+
+## How the agent is restricted
+
+Each platform is analyzed by `claude -p` with its source root as working directory, and:
+
+- only the `Read`, `Grep` and `Glob` tools, with write, shell, web and agent tools explicitly denied
+- `--restricted` and `--safe-mode`, so the analyzed repository's settings, `CLAUDE.md`, skills and agents are never loaded
+- `--strict-mcp-config`, `--permission-mode dontAsk` and no session persistence
+- no `ANTHROPIC_*` or `CLAUDE_CODE_USE_*` variables, so a run never bills an API key or cloud account and never sends code to another endpoint
+
+The analyzed code is treated as data: prompts say so, and nothing in the repository can change how driftcheck or the agent behaves.
+
+## Evidence, not guesses
+
+Every item in a description cites a file, a line and a short verbatim quote. driftcheck checks each one against the source and marks it `verified`, `line_exists`, `quote_not_found`, `line_out_of_range` or `file_not_found`. Paths are resolved strictly inside the platform root (no absolute paths, `..` or symlinks out of it).
+
+Findings may only cite evidence from the two descriptions, and each reference keeps its checked status. The report marks references that could not be confirmed with ⚠️ and lists findings without any source.
+
+## Usage and limits
+
+Runs count toward your Claude plan. Each run is capped by `maxBudgetUsd` (default 2, at most 20), and the report and terminal show how much of your **5-hour window** and **weekly limit** is used, when Claude Code reports it.
+
+## Development
+
+```bash
+./gradlew build          # compiles and runs the tests (Claude is never called)
+```
+
+See [`CLAUDE.md`](CLAUDE.md) for the project rules and architecture.
 
 ## License
 
