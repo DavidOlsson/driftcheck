@@ -21,13 +21,12 @@ class ProcessCommandRunner(
         command: String,
         args: List<String>,
         timeout: Duration,
-        cwd: Path?,
+        cwd: Path,
+        env: Map<String, String>,
         input: String?,
-        env: Map<String, String>?,
     ): CommandResult {
-        val builder = ProcessBuilder(listOf(command) + args)
-        cwd?.let { builder.directory(it.toFile()) }
-        env?.let { builder.environment().apply { clear(); putAll(it) } }
+        val builder = ProcessBuilder(listOf(command) + args).directory(cwd.toFile())
+        builder.environment().apply { clear(); putAll(env) }
 
         val process = try {
             builder.start()

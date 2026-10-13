@@ -16,16 +16,18 @@ class CommandTimeoutException(val command: String, val timeout: Duration) :
  */
 interface CommandRunner {
     /**
-     * @param input written to the program's stdin, which is then closed.
-     * @param env the program's whole environment; null keeps the current one.
      * @param timeout every run has a limit, so a program that hangs cannot block driftcheck forever.
+     * @param cwd required, because for `claude` the working directory decides which files the agent can read.
+     * @param env the program's whole environment. Required, so nothing inherits driftcheck's own environment
+     *   (and with it an API key) by accident; for `claude` it comes from `claudeEnv`.
+     * @param input written to the program's stdin, which is then closed.
      */
     fun run(
         command: String,
         args: List<String>,
         timeout: Duration,
-        cwd: Path? = null,
+        cwd: Path,
+        env: Map<String, String>,
         input: String? = null,
-        env: Map<String, String>? = null,
     ): CommandResult
 }

@@ -9,9 +9,9 @@ class FakeCommandRunner(private val respond: (Call) -> CommandResult) : CommandR
         val command: String,
         val args: List<String>,
         val timeout: Duration,
-        val cwd: Path?,
+        val cwd: Path,
+        val env: Map<String, String>,
         val input: String?,
-        val env: Map<String, String>?,
     )
 
     val calls = mutableListOf<Call>()
@@ -20,11 +20,11 @@ class FakeCommandRunner(private val respond: (Call) -> CommandResult) : CommandR
         command: String,
         args: List<String>,
         timeout: Duration,
-        cwd: Path?,
+        cwd: Path,
+        env: Map<String, String>,
         input: String?,
-        env: Map<String, String>?,
     ): CommandResult {
-        val call = Call(command, args, timeout, cwd, input, env)
+        val call = Call(command, args, timeout, cwd, env, input)
         calls += call
         return respond(call)
     }
