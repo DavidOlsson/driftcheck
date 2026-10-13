@@ -2,9 +2,12 @@ package driftcheck.process
 
 import java.io.IOException
 import java.io.InputStream
+import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -15,6 +18,11 @@ import kotlin.time.Duration.Companion.seconds
 class ProcessCommandRunner(
     /** How long a timed-out program gets to exit after a normal stop request before it is killed. */
     private val killGrace: Duration = 5.seconds,
+    /**
+     * How long to wait for stdout and stderr to close once the program has exited. A child process the program
+     * left running can keep them open, which would otherwise block driftcheck forever.
+     */
+    private val outputGrace: Duration = 5.seconds,
 ) : CommandRunner {
 
     override fun run(
@@ -25,6 +33,8 @@ class ProcessCommandRunner(
         env: Map<String, String>,
         input: String?,
     ): CommandResult {
+        // Checked up front: the JDK reports a missing directory with the same error as a missing program
+        require(Files.isDirectory(cwd)) { "The working directory $cwd does not exist or is not a directory" }
         val builder = ProcessBuilder(listOf(command) + args).directory(cwd.toFile())
         builder.environment().apply { clear(); putAll(env) }
 
@@ -50,10 +60,21 @@ class ProcessCommandRunner(
         if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
             process.destroy()
             if (!process.waitFor(killGrace.inWholeMilliseconds, TimeUnit.MILLISECONDS)) process.destroyForcibly().waitFor()
-            throw CommandTimeoutException(command, timeout)
+            // Best effort: what the program wrote before it was stopped is often the only clue to why it hung
+            val partialStderr = runCatching { stderr.await(command) }.getOrDefault("")
+            throw CommandTimeoutException(command, timeout, partialStderr)
         }
-        return CommandResult(process.exitValue(), stdout.get(), stderr.get())
+        return CommandResult(process.exitValue(), stdout.await(command), stderr.await(command))
     }
+
+    private fun FutureTask<String>.await(command: String): String =
+        try {
+            get(outputGrace.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+        } catch (_: TimeoutException) {
+            throw IOException("\"$command\" exited, but its output was still open after $outputGrace; a process it started may still be running")
+        } catch (e: ExecutionException) {
+            throw IOException("Could not read the output of \"$command\": ${e.cause?.message}", e.cause)
+        }
 
     private fun InputStream.readText(): String = bufferedReader().use { it.readText() }
 

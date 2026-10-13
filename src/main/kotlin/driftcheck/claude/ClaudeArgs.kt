@@ -1,5 +1,7 @@
 package driftcheck.claude
 
+import java.math.BigDecimal
+
 /** The only tools the agent can ever get: it can look at code but never change, run or send anything. */
 val READ_ONLY_TOOLS = listOf("Read", "Grep", "Glob")
 
@@ -49,7 +51,8 @@ fun claudeArgs(options: ClaudeOptions): List<String> = buildList {
     addAll(listOf("--json-schema", options.jsonSchema))
     addAll(listOf("--system-prompt", options.systemPrompt))
     addAll(listOf("--model", options.model))
-    addAll(listOf("--max-budget-usd", options.maxBudgetUsd.toString()))
+    // Plain notation: Double.toString gives "1.0E-4" for small and large values, which claude may not parse
+    addAll(listOf("--max-budget-usd", BigDecimal.valueOf(options.maxBudgetUsd).stripTrailingZeros().toPlainString()))
     // Restricted mode ignores the analyzed repository's settings and confines file tools to the working directory
     add("--restricted")
     // Restricted mode still loads the repository's CLAUDE.md, skills and agents, which are instructions written by
