@@ -11,14 +11,14 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - Build only what the current task asks for. Do not add commands, options or modules ahead of time.
 
 ## Stack and why
-- **Kotlin/JVM:** the owner's everyday language, so every line can be explained and maintained.
+- **Kotlin/JVM on Java 17:** the owner's everyday language, so every line can be explained and maintained. Java 17 because almost every Android developer already has it.
 - **Gradle** with the `application` plugin: builds a runnable distribution that is released as a zip on GitHub Releases.
 - **Claude Code CLI (`claude -p`)** is the only way driftcheck reaches Claude. It uses the user's own installed and logged-in Claude Code, so driftcheck needs no API key and no SDK, and never handles logins.
-- **kotlinx.serialization:** reads config and validates all model output against the expected structure.
+- **kotlinx.serialization** (added when first needed): reads the config, which is JSON so no extra parser is needed, and validates all model output against the expected structure.
 - **JUnit 5:** unit tests.
 
 ## Architecture principles
-- **The agent is read-only.** `claude -p` always runs with `--restricted`, `--tools Read,Grep,Glob`, `--disallowedTools` for everything that writes, runs commands or uses the network, `--strict-mcp-config` and `--permission-mode dontAsk`, with the platform's source root as working directory. `ANTHROPIC_API_KEY` is removed from its environment, so a run never bills an API key by accident.
+- **The agent is read-only.** `claude -p` always runs with `--restricted`, `--tools Read,Grep,Glob`, `--disallowedTools` for everything that writes, runs commands or uses the network, `--strict-mcp-config` and `--permission-mode dontAsk`, with the platform's source root as working directory. `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` are removed from its environment, so a run never bills an API key by accident.
 - **The analyzed code is data, never instructions.** Prompts say so, and nothing from the analyzed repository can change how driftcheck or the agent behaves.
 - **Every claim needs evidence.** Each item in a description cites file, line and a short quote. A deterministic check confirms the file exists inside the platform root, the line exists and the quote appears near it. Reports show what is verified and what is not.
 - **Model output is untrusted input.** It is parsed and validated before use, and file paths from it may never point outside the platform root.
@@ -27,6 +27,11 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - **Clear errors.** Expected problems (missing login, invalid config, a run that hits its budget) give a message that says what to do. Errors are never swallowed.
 - **Usage is visible.** Every run has a budget (`--max-budget-usd`), and reports show the plan usage Claude Code reports.
 - **Comments explain why, not what.**
+
+## Commands
+- Build and test: `./gradlew build`
+- Tests only: `./gradlew test`
+- Runnable copy: `./gradlew installDist`, then `build/install/driftcheck/bin/driftcheck`
 
 ## Language
 English everywhere: code, comments, CLI output, reports, documentation and everything in git (branch names, commits, pull request titles and bodies).
@@ -44,5 +49,12 @@ English everywhere: code, comments, CLI output, reports, documentation and every
 - Do not touch anything on the GitHub account outside this repository, and do not change repository settings.
 - No `Co-Authored-By` trailers in commits.
 
-## Planned structure
-Not created yet; added only when a task needs it. One Gradle module, with packages for the CLI entry point, config, running `claude`, evidence verification, comparison and reports.
+## Structure
+One Gradle module, package `driftcheck`:
+```
+Main.kt     entry point: argument handling, exit codes
+process/    CommandRunner: runs external programs (claude) without a shell, always with a timeout
+claude/     the arguments and environment for claude -p, built in one place (claudeArgs, claudeEnv)
+source/     SourceReader: reads source files, never outside a platform's root
+```
+Packages for config, evidence verification, comparison and reports are added when a task needs them.
