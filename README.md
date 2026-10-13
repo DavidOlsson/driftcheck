@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.jpg" alt="driftcheck logo: two cars drifting side by side" width="240"></p>
+
 # driftcheck
 
 Many teams build the same app twice, in Kotlin for Android and in Swift for iOS. Over time the two drift apart: different timeouts, limits, validation, error handling, or a feature that only exists on one side. Nobody notices until a user or a tester does.
