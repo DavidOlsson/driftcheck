@@ -5,7 +5,9 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class FsSourceReaderTest {
@@ -57,5 +59,13 @@ class FsSourceReaderTest {
     @Test
     fun `refuses paths that are not valid on this system`() {
         assertNull(reader.read("search/Search.kt\u0000.txt"))
+    }
+
+    @Test
+    fun `refuses a root that does not exist or is not a directory`() {
+        for (badRoot in listOf(workspace.resolve("missing"), workspace.resolve("secret.txt"))) {
+            val error = assertFailsWith<IllegalArgumentException> { FsSourceReader(badRoot) }
+            assertContains(error.message!!, "does not exist or is not a directory")
+        }
     }
 }

@@ -31,11 +31,16 @@ fun resolveInsideRoot(root: Path, relativePath: String): Path? {
 }
 
 class FsSourceReader(private val root: Path) : SourceReader {
+    // Checked up front: a missing root would otherwise make every file look missing instead of failing clearly
+    private val realRoot: Path = run {
+        require(Files.isDirectory(root)) { "The source root $root does not exist or is not a directory" }
+        root.toRealPath()
+    }
+
     override fun read(relativePath: String): String? {
-        val resolved = resolveInsideRoot(root, relativePath) ?: return null
+        val resolved = resolveInsideRoot(realRoot, relativePath) ?: return null
         return try {
             // A symlink inside the root could still point outside it, so the real paths are compared too
-            val realRoot = root.toRealPath()
             val realFile = resolved.toRealPath()
             if (!realFile.startsWith(realRoot) || !Files.isRegularFile(realFile)) return null
             // Decoded leniently: a source file in another encoding must not stop the check
