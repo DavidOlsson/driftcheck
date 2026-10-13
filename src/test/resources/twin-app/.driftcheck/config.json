@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "platforms": {
+    "android": { "path": "android" },
+    "ios": { "path": "ios" }
+  },
+  "features": [
+    { "id": "search", "name": "Search", "hints": ["SearchViewModel"] }
+  ]
+}
