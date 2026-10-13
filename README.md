@@ -6,7 +6,17 @@ driftcheck will let Claude read how one feature is implemented in each app, desc
 
 It runs locally through your own [Claude Code](https://claude.com/claude-code) login. No API key is needed, and your code is only sent to Anthropic.
 
-> 🚧 **Under development.** Nothing to run yet.
+> 🚧 **Under development.** The foundation is in place, but there is no command that compares apps yet.
+
+## Build
+
+Needs JDK 17 or newer. The Gradle wrapper downloads Gradle itself.
+
+```bash
+./gradlew build          # compiles and runs the tests
+./gradlew installDist    # builds a runnable copy in build/install/driftcheck
+build/install/driftcheck/bin/driftcheck --version
+```
 
 ## License
 
