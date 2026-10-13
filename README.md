@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/logo.jpg" alt="driftcheck logo: two cars drifting side by side" width="240"></p>
+<p align="center"><img src="docs/logo.png" alt="driftcheck logo: two cars drifting side by side" width="240"></p>
 
 # driftcheck
 
