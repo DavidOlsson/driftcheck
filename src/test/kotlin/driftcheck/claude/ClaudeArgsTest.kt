@@ -75,8 +75,22 @@ class ClaudeArgsTest {
     }
 
     @Test
-    fun `removes API credentials from the environment and keeps the rest`() {
-        val env = mapOf("ANTHROPIC_API_KEY" to "secret", "ANTHROPIC_AUTH_TOKEN" to "token", "PATH" to "/usr/bin", "HOME" to "/Users/me")
-        assertEquals(mapOf("PATH" to "/usr/bin", "HOME" to "/Users/me"), claudeEnv(env))
+    fun `removes API credentials, other endpoints and other providers from the environment and keeps the rest`() {
+        val env = mapOf(
+            "ANTHROPIC_API_KEY" to "secret",
+            "ANTHROPIC_AUTH_TOKEN" to "token",
+            "ANTHROPIC_BASE_URL" to "https://elsewhere.example",
+            "ANTHROPIC_CUSTOM_HEADERS" to "X-Header: value",
+            "CLAUDE_CODE_USE_BEDROCK" to "1",
+            "CLAUDE_CODE_USE_VERTEX" to "1",
+            "anthropic_api_key" to "lowercase, as Windows allows",
+            "CLAUDE_CODE_OAUTH_TOKEN" to "the user's own login",
+            "PATH" to "/usr/bin",
+            "HOME" to "/Users/me",
+        )
+        assertEquals(
+            mapOf("CLAUDE_CODE_OAUTH_TOKEN" to "the user's own login", "PATH" to "/usr/bin", "HOME" to "/Users/me"),
+            claudeEnv(env),
+        )
     }
 }
