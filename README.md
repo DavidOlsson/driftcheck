@@ -55,6 +55,8 @@ driftcheck report search             # rebuilds the report from stored results, 
 - `.driftcheck/findings/<feature>.json`: the findings, with the model and usage of the run
 - `.driftcheck/reports/<feature>.md`: a readable report with behavior differences, possible bugs, features on one platform only, UI differences, what is the same, questions for the team, and how it was checked
 
+See [examples/wikipedia-search.md](examples/wikipedia-search.md) for a real report on the search feature of the open source Wikipedia apps.
+
 ## How the agent is restricted
 
 Each platform is analyzed by `claude -p` with its source root as working directory, and:

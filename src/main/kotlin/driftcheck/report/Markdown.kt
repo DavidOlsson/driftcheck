@@ -62,7 +62,8 @@ private fun findingEvidenceLines(findings: List<VerifiedFinding>): List<String> 
     val refs = findings.flatMap { f -> f.android?.evidence.orEmpty() + f.ios?.evidence.orEmpty() }
     if (refs.isNotEmpty()) {
         val verified = refs.count { it.status == EvidenceStatus.VERIFIED }
-        add("- **Findings:** $verified of ${refs.size} source references verified; $UNVERIFIED_MARK marks the ones that could not be confirmed")
+        val marked = if (verified < refs.size) "; $UNVERIFIED_MARK marks the ones that could not be confirmed" else ""
+        add("- **Findings:** $verified of ${refs.size} source references verified$marked")
     }
     val unsourced = findings.filter { f -> f.android?.evidence.orEmpty().isEmpty() && f.ios?.evidence.orEmpty().isEmpty() }
     if (unsourced.isNotEmpty()) {
