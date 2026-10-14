@@ -72,12 +72,16 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
         usage = usage,
         findings = compared.output,
     )
-    // Written only after every step succeeded, so the stored files always belong to the same run
+    // Written together and only after every step succeeded, so the stored files always belong to the same run
     val store = Store(config.projectRoot)
-    store.writeJson(store.spec(feature.id, Platform.ANDROID), VerifiedFeatureSpec.serializer(), android)
-    store.writeJson(store.spec(feature.id, Platform.IOS), VerifiedFeatureSpec.serializer(), ios)
-    store.writeJson(store.findings(feature.id), CompareRun.serializer(), run)
-    store.writeText(store.report(feature.id), renderCompareReport(run, android, ios))
+    store.writeAll(
+        mapOf(
+            store.spec(feature.id, Platform.ANDROID) to store.json(VerifiedFeatureSpec.serializer(), android),
+            store.spec(feature.id, Platform.IOS) to store.json(VerifiedFeatureSpec.serializer(), ios),
+            store.findings(feature.id) to store.json(CompareRun.serializer(), run),
+            store.report(feature.id) to renderCompareReport(run, android, ios),
+        ),
+    )
     return CompareResult(run.findings, store.report(feature.id), usage)
 }
 
