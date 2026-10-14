@@ -1,14 +1,15 @@
 package driftcheck.source
 
+import driftcheck.UserException
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
-import java.nio.file.NoSuchFileException
+import java.nio.file.FileSystemException
 import java.nio.file.Path
 
 /** Read access to one platform's source tree. Behind an interface so evidence checks can be tested in memory. */
 fun interface SourceReader {
-    /** The file's text, or null when it does not exist, is not a file, or lies outside the root. */
+    /** The file's text, or null when it does not exist, is not a file, cannot be opened, or lies outside the root. */
     fun read(relativePath: String): String?
 }
 
@@ -45,10 +46,12 @@ class FsSourceReader(private val root: Path) : SourceReader {
             if (!realFile.startsWith(realRoot) || !Files.isRegularFile(realFile)) return null
             // Decoded leniently: a source file in another encoding must not stop the check
             String(Files.readAllBytes(realFile), Charsets.UTF_8)
-        } catch (_: NoSuchFileException) {
+        } catch (_: FileSystemException) {
+            // The path comes from the model: a missing file, a name that is too long, a path through a file, a
+            // symlink loop or a file without read access all mean the evidence cannot be confirmed
             null
         } catch (e: IOException) {
-            throw IOException("Could not read $relativePath in $root: ${e.message}", e)
+            throw UserException("Could not read $relativePath in $root: ${e.message}", e)
         }
     }
 }

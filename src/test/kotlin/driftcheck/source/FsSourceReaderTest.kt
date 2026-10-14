@@ -68,4 +68,12 @@ class FsSourceReaderTest {
             assertContains(error.message!!, "does not exist or is not a directory")
         }
     }
+
+    @Test
+    fun `treats paths the file system cannot open as missing instead of failing`() {
+        assertNull(reader.read("search/Search.kt/inside-a-file.kt"))
+        assertNull(reader.read("x".repeat(300) + ".kt"))
+        root.resolve("loop").let { Files.createSymbolicLink(it, it) }
+        assertNull(reader.read("loop"))
+    }
 }
