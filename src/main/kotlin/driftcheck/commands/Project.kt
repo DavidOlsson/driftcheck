@@ -4,6 +4,7 @@ import driftcheck.UserException
 import driftcheck.config.CONFIG_FILE
 import driftcheck.config.CONFIG_PATH
 import driftcheck.config.CONFIG_TEMPLATE
+import driftcheck.compare.sanitizeFindings
 import driftcheck.config.Config
 import driftcheck.evidence.VerificationSummary
 import driftcheck.evidence.summarize
@@ -67,14 +68,28 @@ fun formatSummary(spec: VerifiedFeatureSpec, summary: VerificationSummary): Stri
     }
 }.joinToString("\n")
 
-/** Rebuilds a feature's report from the stored results, without Claude. */
+/**
+ * Rebuilds a feature's report from the stored results, without Claude. The stored files may have been edited, so
+ * their evidence is verified against the source again instead of trusting the stored statuses.
+ */
 fun rebuildReport(config: Config, featureId: String): Path {
     val feature = config.feature(featureId)
     val store = Store(config.projectRoot)
     val howToRecreate = "Run \"driftcheck compare ${feature.id}\" to create it."
-    val android = store.readJson(store.spec(feature.id, Platform.ANDROID), VerifiedFeatureSpec.serializer(), howToRecreate)
-    val ios = store.readJson(store.spec(feature.id, Platform.IOS), VerifiedFeatureSpec.serializer(), howToRecreate)
-    val run = store.readJson(store.findings(feature.id), CompareRun.serializer(), howToRecreate)
+    val specs = Platform.entries.associateWith { platform ->
+        val file = store.spec(feature.id, platform)
+        val stored = store.readJson(file, VerifiedFeatureSpec.serializer(), howToRecreate).toSpec()
+        val problems = stored.problems() + listOfNotNull(
+            "it describes ${stored.platform.id}".takeIf { stored.platform != platform },
+            "it describes \"${stored.feature}\"".takeIf { stored.feature != feature.id },
+        )
+        if (problems.isNotEmpty()) throw UserException("$file is not a valid description: ${problems.take(5).joinToString("; ")}. $howToRecreate")
+        verifySpec(stored, FsSourceReader(config.root(platform)))
+    }
+    val android = specs.getValue(Platform.ANDROID)
+    val ios = specs.getValue(Platform.IOS)
+    val stored = store.readJson(store.findings(feature.id), CompareRun.serializer(), howToRecreate)
+    val run = stored.copy(findings = sanitizeFindings(stored.findings.map { it.toFinding() }, feature.id, android, ios))
     store.writeText(store.report(feature.id), renderCompareReport(run, android, ios))
     return store.report(feature.id)
 }

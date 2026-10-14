@@ -23,15 +23,20 @@ private val SECTION_TITLES = linkedMapOf(
 
 private const val UNVERIFIED_MARK = "⚠️"
 
+/** Everything but line breaks and tabs, which [mdText] turns into spaces. */
+private val CONTROL_CHARACTERS = Regex("[\\p{Cc}&&[^\\n\\r\\t]]")
+
 /** Markdown table cells must not break the table. */
 fun cell(text: String): String = text.replace("|", "\\|").replace(Regex("\\r?\\n"), " ")
 
 /**
  * Text from the model, the analyzed code or its config, made inert for Markdown. Raw HTML, links and images (which
  * load a URL when viewed, and can leak data through it) must never come from untrusted text. Line breaks become
- * spaces, so the text cannot start headings or list items either. Light formatting such as backticks is kept.
+ * spaces, so the text cannot start headings or list items either, and control characters, which could rewrite a
+ * terminal showing the file, are removed. Light formatting such as backticks is kept.
  */
 fun mdText(text: String): String = text
+    .replace(CONTROL_CHARACTERS, "")
     .replace("\\", "\\\\")
     .replace("[", "\\[")
     .replace("]", "\\]")
@@ -42,7 +47,7 @@ fun mdText(text: String): String = text
 private fun side(s: VerifiedPlatformSide?): String {
     if (s == null) return "—"
     val refs = s.evidence.joinToString(", ") { e ->
-        "`${cell(e.location.replace("`", "'"))}`" + if (e.status == EvidenceStatus.VERIFIED) "" else " $UNVERIFIED_MARK"
+        "`${cell(e.location.replace("`", "'").replace(CONTROL_CHARACTERS, ""))}`" + if (e.status == EvidenceStatus.VERIFIED) "" else " $UNVERIFIED_MARK"
     }
     return cell(if (refs.isEmpty()) mdText(s.summary) else "${mdText(s.summary)} ($refs)")
 }
@@ -146,7 +151,8 @@ fun renderCompareReport(run: CompareRun, android: VerifiedFeatureSpec, ios: Veri
     }
     val notFound = android.notFound.map { "Android: $it" } + ios.notFound.map { "iOS: $it" }
     if (notFound.isNotEmpty()) add("- **Looked for but not found:** ${notFound.joinToString("; ") { cell(mdText(it)) }}")
-    add("- **Model:** `${run.model}` via Claude Code · **Tokens:** ${tokenCounts(run.usage)} · **Plan usage:** ${planUsageLabel(run.usage)}")
-    add("- **Generated:** ${formatUtc(run.generatedAt)} by driftcheck")
+    // Stored results may have been edited by someone else, so even these fields are treated as untrusted
+    add("- **Model:** `${mdText(run.model.replace("`", "'"))}` via Claude Code · **Tokens:** ${tokenCounts(run.usage)} · **Plan usage:** ${mdText(planUsageLabel(run.usage))}")
+    add("- **Generated:** ${mdText(formatUtc(run.generatedAt))} by driftcheck")
     add("")
 }.joinToString("\n")

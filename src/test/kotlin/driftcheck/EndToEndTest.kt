@@ -20,6 +20,7 @@ import kotlin.io.path.copyToRecursively
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.io.path.toPath
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -159,6 +160,22 @@ class EndToEndTest {
         val rebuilt = runWith(noClaude, "report", "search")
         assertEquals(0, rebuilt.exitCode, rebuilt.err)
         assertEquals(original, reportFile.readText())
+    }
+
+    @Test
+    fun `report checks stored evidence again instead of trusting edited statuses`() {
+        assertEquals(0, runWith(twinAppClaude(), "compare", "search").exitCode)
+        val specFile = project.resolve(".driftcheck/specs/search/android.json")
+        specFile.writeText(specFile.readText().replace("\"line_out_of_range\"", "\"verified\"").replace("\"verified\": false", "\"verified\": true"))
+        assertFalse("line_out_of_range" in specFile.readText() || "\"verified\": false" in specFile.readText())
+        val findingsFile = project.resolve(".driftcheck/findings/search.json")
+        findingsFile.writeText(findingsFile.readText().replace("claude-sonnet-5-5", "x` <img src=https://evil.example/>"))
+
+        assertEquals(0, runWith(FakeClaudeClient { error("Claude must not be called") }, "report", "search").exitCode)
+
+        val report = project.resolve(".driftcheck/reports/search.md").readText()
+        assertContains(report, "- **Android:** 3 of 4 items verified against the source")
+        assertFalse("<img" in report)
     }
 
     @Test

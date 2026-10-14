@@ -81,4 +81,9 @@ class MainTest {
         assertEquals(0, runWith("-C", "app", "init").exitCode)
         assertEquals(CONFIG_TEMPLATE, project.resolve("app/.driftcheck/config.json").readText())
     }
+
+    @Test
+    fun `shows control characters from untrusted text as question marks`() {
+        assertEquals("a?[2Jb\nc\td", terminalSafe("a\u001b[2Jb\nc\td"))
+    }
 }

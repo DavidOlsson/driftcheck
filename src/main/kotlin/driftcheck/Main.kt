@@ -115,6 +115,12 @@ private fun parseOptions(args: List<String>): Options {
     return Options(positional, project, model, allowExternalPaths, force, help, version)
 }
 
+/**
+ * Messages and summaries can contain text from the model or the analyzed repository. Control characters in it could
+ * move the cursor or rewrite earlier lines in the terminal, so they are shown as "?".
+ */
+fun terminalSafe(text: String): String = text.replace(Regex("[\\p{Cc}&&[^\\n\\t]]"), "?")
+
 /** Separate from main() so it can be tested without exiting the JVM. */
 fun run(args: List<String>, out: PrintStream, err: PrintStream, env: Environment = Environment.system()): Int {
     try {
@@ -129,14 +135,14 @@ fun run(args: List<String>, out: PrintStream, err: PrintStream, env: Environment
         }
         return runCommand(options, out, env)
     } catch (e: UsageException) {
-        err.println("driftcheck: ${e.message} Run \"driftcheck --help\".")
+        err.println("driftcheck: ${terminalSafe(e.message.orEmpty())} Run \"driftcheck --help\".")
         return EXIT_USAGE
     } catch (e: ClaudeRunException) {
-        err.println("driftcheck: ${e.message}")
+        err.println("driftcheck: ${terminalSafe(e.message.orEmpty())}")
         if (e.usage.plan != null) err.println("Plan usage: ${planUsageLabel(e.usage, localTime(env.zone))}")
         return EXIT_FAILURE
     } catch (e: UserException) {
-        err.println("driftcheck: ${e.message}")
+        err.println("driftcheck: ${terminalSafe(e.message.orEmpty())}")
         return EXIT_FAILURE
     }
 }
@@ -169,7 +175,7 @@ private fun runCommand(options: Options, out: PrintStream, env: Environment): In
         "verify" -> {
             val specFile = env.workingDir.resolve(operand("description file"))
             val (spec, summary) = verifySpecFile(config(), specFile)
-            out.println(formatSummary(spec, summary))
+            out.println(terminalSafe(formatSummary(spec, summary)))
         }
         "report" -> {
             val file = rebuildReport(config(), operand("feature"))
