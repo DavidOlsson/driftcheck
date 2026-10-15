@@ -60,7 +60,7 @@ model/        serializable descriptions, findings and usage; the JSON schema for
 extract/      prompts and the per-platform description run
 evidence/     deterministic evidence verification
 compare/      the tool-less comparison run and sanitizeFindings
-report/       Markdown report rendering
+report/       the self-contained HTML report (no external resources) and usage formatting
 store/        writes results inside .driftcheck/, never through symlinks
 process/      CommandRunner: runs external programs (claude) without a shell, always with a timeout
 source/       SourceReader: reads source files, never outside a platform's root

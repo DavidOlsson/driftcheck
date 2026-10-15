@@ -76,8 +76,8 @@ class EndToEndTest {
            "android":{"summary":"Returns nothing for an empty query","evidence":[]},
            "ios":{"summary":"Returns nothing for an empty query","evidence":[{"file":"Search/SearchViewModel.swift","line":14}]}},
           {"category":"behavior","severity":"high","title":"Different result limits","keys":["api.result_limit"],
-           "android":{"summary":"20 results","evidence":[{"file":"app/src/main/java/org/example/search/SearchViewModel.kt","line":8}]},
-           "ios":{"summary":"50 results","evidence":[{"file":"Search/SearchViewModel.swift","line":5},{"file":"Search/Invented.swift","line":1}]},
+           "android":{"summary":"20 results","value":"20","evidence":[{"file":"app/src/main/java/org/example/search/SearchViewModel.kt","line":8}]},
+           "ios":{"summary":"50 results","value":"50","evidence":[{"file":"Search/SearchViewModel.swift","line":5},{"file":"Search/Invented.swift","line":1}]},
            "question":"Is the higher limit on iOS intentional?"},
           {"category":"bug","severity":"medium","title":"iOS does not trim the query","keys":["input_handling.trim"],
            "android":{"summary":"Trims","evidence":[{"file":"app/src/main/java/org/example/search/SearchViewModel.kt","line":12}]},
@@ -119,7 +119,7 @@ class EndToEndTest {
         assertContains(result.out, "Android: 4 items, 3 verified against the source")
         assertContains(result.out, "iOS: 3 items, 3 verified against the source")
         assertContains(result.out, "Findings: 2 behavior, 1 bug, 1 equal")
-        assertContains(result.out, "Report: .driftcheck/reports/search.md")
+        assertContains(result.out, "Report: .driftcheck/reports/search.html")
         assertContains(result.out, "Plan usage: 5-hour window 30% used, resets Tue 15:00")
 
         // Two read-only agents in their own roots, then one run without tools outside the project
@@ -131,15 +131,18 @@ class EndToEndTest {
         assertFalse(comparison.cwd.startsWith(project))
         assertFalse(comparison.cwd.exists(), "the empty work directory is removed afterwards")
 
-        val report = project.resolve(".driftcheck/reports/search.md").readText()
-        assertContains(report, "| 1 | high | Different result limits | 20 results (`app/src/main/java/org/example/search/SearchViewModel.kt:8`) | 50 results (`Search/SearchViewModel.swift:5`) |")
+        val report = project.resolve(".driftcheck/reports/search.html").readText()
+        assertContains(report, "<b>3</b><span>Differences</span>")
+        // Most severe first, then in category order: behavior differences before possible bugs
+        val order = listOf("Different result limits", "Different debounce", "iOS does not trim the query").map(report::indexOf)
+        assertEquals(order.sorted(), order)
+        assertContains(report, """<div class="val">20</div>""")
+        assertContains(report, """<b class="ok" aria-label="verified">✓</b> SearchViewModel.kt:8""")
         assertFalse("Invented.swift" in report)
-        assertContains(report, "## 🟠 Possible bugs or gaps")
-        assertContains(report, "| 1 | medium | iOS does not trim the query |")
-        assertContains(report, "- **Android:** 3 of 4 items verified against the source")
-        assertContains(report, "**iOS sections not inspected:** storage")
-        assertContains(report, "**Tokens:** 3,000 in, 300 out")
-        assertContains(report, "- **Generated:** 2026-10-13 08:30 UTC by driftcheck")
+        assertContains(report, "<b>Android:</b> 3 of 4 items verified against the source")
+        assertContains(report, "iOS areas not inspected:</b> Storage")
+        assertContains(report, "<b>Tokens:</b> 3,000 in, 300 out")
+        assertContains(report, "<b>Generated:</b> 2026-10-13 08:30 UTC by driftcheck")
         assertTrue(project.resolve(".driftcheck/specs/search/android.json").exists())
         assertContains(project.resolve(".driftcheck/findings/search.json").readText(), "\"status\": \"verified\"")
     }
@@ -147,7 +150,7 @@ class EndToEndTest {
     @Test
     fun `verify and report work from the stored results without Claude`() {
         assertEquals(0, runWith(twinAppClaude(), "compare", "search").exitCode)
-        val reportFile = project.resolve(".driftcheck/reports/search.md")
+        val reportFile = project.resolve(".driftcheck/reports/search.html")
         val original = reportFile.readText()
         val noClaude = FakeClaudeClient { error("Claude must not be called") }
 
@@ -173,8 +176,8 @@ class EndToEndTest {
 
         assertEquals(0, runWith(FakeClaudeClient { error("Claude must not be called") }, "report", "search").exitCode)
 
-        val report = project.resolve(".driftcheck/reports/search.md").readText()
-        assertContains(report, "- **Android:** 3 of 4 items verified against the source")
+        val report = project.resolve(".driftcheck/reports/search.html").readText()
+        assertContains(report, "<b>Android:</b> 3 of 4 items verified against the source")
         assertFalse("<img" in report)
     }
 
