@@ -15,7 +15,7 @@ import kotlin.test.assertFailsWith
 
 class ExtractTest {
     private val config = parseConfig(
-        """{"version":1,"platforms":{"android":{"path":"android"},"ios":{"path":"ios"}},"maxBudgetUsd":3}""",
+        """{"version":1,"name":"Test","platforms":{"android":{"path":"android"},"ios":{"path":"ios"}},"maxBudgetUsd":3}""",
         Path.of("/work/project"),
     )
     private val feature = FeatureConfig("search", "Search", listOf("SearchFragment"))

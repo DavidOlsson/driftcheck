@@ -70,14 +70,22 @@ class HtmlReportTest {
         ),
     )
 
-    private val report = renderCompareReport(run, android, ios)
+    private val subject = ReportSubject("Wikipedia <beta>", mapOf(Platform.ANDROID to "android", Platform.IOS to "apps/ios"))
+
+    private val report = renderCompareReport(subject, run, android, ios)
 
     @Test
     fun `is one self-contained page that cannot load anything`() {
         assertTrue(report.startsWith("<!doctype html>"))
-        assertContains(report, "<title>Parity report: Search</title>")
+        assertContains(report, "<title>Wikipedia &lt;beta&gt;: Search parity report</title>")
         assertContains(report, "content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'\"")
         assertFalse(Regex("(src|href)=\"https?:").containsMatchIn(report))
+    }
+
+    @Test
+    fun `names the app, the feature and the analyzed folders at the top`() {
+        assertContains(report, """<h1><span class="app">Wikipedia &lt;beta&gt;</span><span class="feature">Search</span></h1>""")
+        assertContains(report, """<span class="plat android">Android</span> <code>android</code> vs <span class="plat ios">iOS</span> <code>apps/ios</code>""")
     }
 
     @Test
@@ -131,7 +139,7 @@ class HtmlReportTest {
 
     @Test
     fun `says so when the platforms do not differ`() {
-        val same = renderCompareReport(run.copy(findings = run.findings.filter { it.category == FindingCategory.EQUAL }), android, ios)
+        val same = renderCompareReport(subject, run.copy(findings = run.findings.filter { it.category == FindingCategory.EQUAL }), android, ios)
         assertContains(same, "No differences found.")
         assertFalse("data-sev=" in same)
     }

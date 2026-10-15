@@ -117,12 +117,19 @@ private fun checkedLines(run: CompareRun, android: VerifiedFeatureSpec, ios: Ver
     add("<li><b>Generated:</b> ${html(formatUtc(run.generatedAt))} by driftcheck</li>")
 }
 
+/** What was analyzed, shown at the top of the report. */
+data class ReportSubject(
+    val appName: String,
+    /** Each platform's source root, relative to the project root. */
+    val paths: Map<Platform, String>,
+)
+
 /**
  * The parity report as one self-contained HTML file: no external resources, so it opens offline and cannot leak
  * anything when viewed. The content security policy enforces that even if escaping ever failed. Everything is
  * visible without JavaScript; the script only adds the filters.
  */
-fun renderCompareReport(run: CompareRun, android: VerifiedFeatureSpec, ios: VerifiedFeatureSpec): String {
+fun renderCompareReport(subject: ReportSubject, run: CompareRun, android: VerifiedFeatureSpec, ios: VerifiedFeatureSpec): String {
     val specs = listOf(android, ios)
     // Most severe first, whatever the category, so the report opens on what needs attention
     val differences = run.findings.filter { it.category != FindingCategory.EQUAL }
@@ -182,13 +189,15 @@ fun renderCompareReport(run: CompareRun, android: VerifiedFeatureSpec, ios: Veri
         "<meta charset=\"utf-8\">",
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
         "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'\">",
-        "<title>Parity report: ${html(run.featureName)}</title>",
+        "<title>${html(subject.appName)}: ${html(run.featureName)} parity report</title>",
         "<style>$CSS</style>",
         "</head>",
         "<body>",
         "<main class=\"wrap\">",
-        "<header><span class=\"eyebrow\">driftcheck parity report</span><h1>${html(run.featureName)}</h1>" +
-            "<p class=\"sub\">Android vs iOS · ${html(formatUtc(run.generatedAt))}</p></header>",
+        "<header class=\"top\"><span class=\"eyebrow\">driftcheck parity report</span>" +
+            "<h1><span class=\"app\">${html(subject.appName)}</span><span class=\"feature\">${html(run.featureName)}</span></h1>" +
+            "<p class=\"sub\">${Platform.entries.joinToString(" vs ") { p -> "<span class=\"plat ${p.id}\">${p.displayName}</span> <code>${html(subject.paths[p].orEmpty())}</code>" }}" +
+            " · ${html(formatUtc(run.generatedAt))}</p></header>",
         kpis,
         summaries,
         "<section><h2>Differences <small>most severe first</small></h2>",
@@ -227,7 +236,11 @@ private val CSS = """
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); }
 .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 64px; display: grid; gap: 24px; }
 h1, h2 { margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -0.01em; }
+h1 { display: grid; gap: 2px; letter-spacing: -0.01em; }
+h1 .app { font-size: clamp(28px, 4.5vw, 38px); }
+h1 .feature { font-size: clamp(18px, 2.6vw, 22px); font-weight: 500; color: var(--muted); }
+.top { display: grid; gap: 6px; }
+.sub .plat { font-size: 11px; }
 h2 { font-size: 19px; margin-bottom: 12px; }
 h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
 p { margin: 0; }

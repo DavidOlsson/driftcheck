@@ -46,6 +46,7 @@ private data class RawPlatforms(val android: RawPlatform, val ios: RawPlatform)
 @Serializable
 private data class RawConfig(
     val version: Int,
+    val name: String,
     val platforms: RawPlatforms,
     val features: List<FeatureConfig> = emptyList(),
     val model: String = DEFAULT_MODEL,
@@ -54,6 +55,8 @@ private data class RawConfig(
 )
 
 data class Config(
+    /** The name of the app, shown at the top of every report so it is clear what was analyzed. */
+    val name: String,
     /** The directory that contains `.driftcheck/`; platform paths are resolved against it. */
     val projectRoot: Path,
     /** Absolute, normalized source roots. */
@@ -97,6 +100,7 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
     }
     val problems = buildList {
         if (raw.version != 1) add("version must be 1, got ${raw.version}")
+        if (raw.name.isBlank()) add("name must be the app's name, such as \"Wikipedia\"")
         if (!isModelId(raw.model)) add("model \"${raw.model}\" is not a model id such as $DEFAULT_MODEL")
         if (!raw.maxBudgetUsd.isFinite() || raw.maxBudgetUsd <= 0 || raw.maxBudgetUsd > MAX_BUDGET_USD_LIMIT) {
             add("maxBudgetUsd must be above 0 and at most $MAX_BUDGET_USD_LIMIT USD per run, got ${raw.maxBudgetUsd}")
@@ -115,7 +119,7 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
         Platform.ANDROID to platformRoot(root, raw.platforms.android.path, Platform.ANDROID, allowExternalPaths),
         Platform.IOS to platformRoot(root, raw.platforms.ios.path, Platform.IOS, allowExternalPaths),
     )
-    return Config(root, platforms, raw.features, raw.model, raw.maxBudgetUsd)
+    return Config(raw.name.trim(), root, platforms, raw.features, raw.model, raw.maxBudgetUsd)
 }
 
 private fun platformRoot(projectRoot: Path, path: String, platform: Platform, allowExternal: Boolean): Path {
@@ -164,6 +168,7 @@ fun loadConfig(projectRoot: Path, allowExternalPaths: Boolean = false): Config {
 val CONFIG_TEMPLATE = """
     {
       "version": 1,
+      "name": "My App",
       "platforms": {
         "android": { "path": "android" },
         "ios": { "path": "ios" }

@@ -79,7 +79,7 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
             store.spec(feature.id, Platform.ANDROID) to store.json(VerifiedFeatureSpec.serializer(), android),
             store.spec(feature.id, Platform.IOS) to store.json(VerifiedFeatureSpec.serializer(), ios),
             store.findings(feature.id) to store.json(CompareRun.serializer(), run),
-            store.report(feature.id) to renderCompareReport(run, android, ios),
+            store.report(feature.id) to renderCompareReport(reportSubject(config), run, android, ios),
         ),
     )
     return CompareResult(run.findings, store.report(feature.id), usage)

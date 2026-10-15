@@ -132,6 +132,7 @@ class EndToEndTest {
         assertFalse(comparison.cwd.exists(), "the empty work directory is removed afterwards")
 
         val report = project.resolve(".driftcheck/reports/search.html").readText()
+        assertContains(report, """<span class="app">Twin App</span><span class="feature">Search</span>""")
         assertContains(report, "<b>3</b><span>Differences</span>")
         // Most severe first, then in category order: behavior differences before possible bugs
         val order = listOf("Different result limits", "Different debounce", "iOS does not trim the query").map(report::indexOf)

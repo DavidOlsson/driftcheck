@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "name": "Twin App",
   "platforms": {
     "android": { "path": "android" },
     "ios": { "path": "ios" }

@@ -35,6 +35,7 @@ driftcheck report search             # rebuilds the report from stored results, 
 ```json
 {
   "version": 1,
+  "name": "Wikipedia",
   "platforms": {
     "android": { "path": "android" },
     "ios": { "path": "ios" }
@@ -47,7 +48,7 @@ driftcheck report search             # rebuilds the report from stored results, 
 }
 ```
 
-`hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
+`name` is the app's name, shown at the top of every report. `hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
 
 `compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. It writes:
 

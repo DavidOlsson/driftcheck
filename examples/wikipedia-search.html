@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
-<title>Parity report: Article search</title>
+<title>Wikipedia: Article search parity report</title>
 <style>:root {
   --bg: #F4F6F9; --surface: #FFFFFF; --surface-2: #EDF0F5; --fg: #17202B; --muted: #5A6676; --line: #D9DFE7; --focus: #2E4DB0;
   --sev-high: #B42318; --sev-high-bg: #FCEBE8; --sev-medium: #A84B06; --sev-medium-bg: #FDF1E3;
@@ -26,7 +26,11 @@
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); }
 .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 64px; display: grid; gap: 24px; }
 h1, h2 { margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -0.01em; }
+h1 { display: grid; gap: 2px; letter-spacing: -0.01em; }
+h1 .app { font-size: clamp(28px, 4.5vw, 38px); }
+h1 .feature { font-size: clamp(18px, 2.6vw, 22px); font-weight: 500; color: var(--muted); }
+.top { display: grid; gap: 6px; }
+.sub .plat { font-size: 11px; }
 h2 { font-size: 19px; margin-bottom: 12px; }
 h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
 p { margin: 0; }
@@ -95,7 +99,7 @@ details.passed > summary, details.summaries > summary { cursor: pointer; padding
 </head>
 <body>
 <main class="wrap">
-<header><span class="eyebrow">driftcheck parity report</span><h1>Article search</h1><p class="sub">Android vs iOS · 2026-10-14 05:57 UTC</p></header>
+<header class="top"><span class="eyebrow">driftcheck parity report</span><h1><span class="app">Wikipedia</span><span class="feature">Article search</span></h1><p class="sub"><span class="plat android">Android</span> <code>android</code> vs <span class="plat ios">iOS</span> <code>ios</code> · 2026-10-14 05:57 UTC</p></header>
 <div class="kpis">
   <div class="kpi"><b>17</b><span>Differences</span></div>
   <div class="kpi hi"><b>3</b><span>High severity</span></div>

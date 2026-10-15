@@ -18,6 +18,7 @@ class ConfigTest {
     private fun config(body: String = "") = """
         {
           "version": 1,
+          "name": "Wikipedia",
           "platforms": { "android": { "path": "android" }, "ios": { "path": "apps/ios" } }
           $body
         }
@@ -26,6 +27,7 @@ class ConfigTest {
     @Test
     fun `parses a minimal config with defaults`() {
         val config = parseConfig(config(), root)
+        assertEquals("Wikipedia", config.name)
         assertEquals(Path.of("/work/project/android"), config.root(Platform.ANDROID))
         assertEquals(Path.of("/work/project/apps/ios"), config.root(Platform.IOS))
         assertEquals(DEFAULT_MODEL, config.model)
@@ -55,6 +57,8 @@ class ConfigTest {
         assertContains(assertFailsWith<ConfigException> { parseConfig(config(""", "modle": "x""""), root) }.message!!, "modle")
         assertFailsWith<ConfigException> { parseConfig("{", root) }
         assertFailsWith<ConfigException> { parseConfig("""{"version": 1}""", root) }
+        assertContains(assertFailsWith<ConfigException> { parseConfig(config().replace("\"name\": \"Wikipedia\",", ""), root) }.message!!, "name")
+        assertContains(assertFailsWith<ConfigException> { parseConfig(config().replace("Wikipedia", " "), root) }.message!!, "app's name")
     }
 
     @Test

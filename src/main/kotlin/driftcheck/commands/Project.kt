@@ -15,6 +15,7 @@ import driftcheck.model.Platform
 import driftcheck.model.VerifiedFeatureSpec
 import driftcheck.model.modelJson
 import driftcheck.model.problems
+import driftcheck.report.ReportSubject
 import driftcheck.report.renderCompareReport
 import driftcheck.source.FsSourceReader
 import driftcheck.store.Store
@@ -90,9 +91,15 @@ fun rebuildReport(config: Config, featureId: String): Path {
     val ios = specs.getValue(Platform.IOS)
     val stored = store.readJson(store.findings(feature.id), CompareRun.serializer(), howToRecreate)
     val run = stored.copy(findings = sanitizeFindings(stored.findings.map { it.toFinding() }, feature.id, android, ios))
-    store.writeText(store.report(feature.id), renderCompareReport(run, android, ios))
+    store.writeText(store.report(feature.id), renderCompareReport(reportSubject(config), run, android, ios))
     return store.report(feature.id)
 }
+
+/** The app's name and each platform's root relative to the project, never the machine's absolute paths. */
+internal fun reportSubject(config: Config) = ReportSubject(
+    config.name,
+    config.platforms.mapValues { (_, root) -> config.projectRoot.relativize(root).toString().ifEmpty { "." } },
+)
 
 /** Shown after init, so the next step is obvious. */
 val INIT_NEXT_STEP = "Edit the platform paths and features in $CONFIG_PATH, then run \"driftcheck compare <feature>\"."
