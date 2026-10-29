@@ -34,8 +34,9 @@ class Store(projectRoot: Path) {
 
     /**
      * Writes files that belong together. Every text first goes to a new temporary file next to its target, and only
-     * when all of them are written are they moved into place, so a failure never leaves files from different runs.
-     * A symlink planted at a target is replaced instead of followed.
+     * when all of them are written are they moved into place, so a failure while writing (a full disk, a missing
+     * permission) changes nothing. Each move replaces its file atomically, but the set is not: if a move itself fails,
+     * the files moved before it are already new. A symlink planted at a target is replaced instead of followed.
      */
     fun writeAll(files: Map<Path, String>) {
         val temps = mutableListOf<Pair<Path, Path>>()

@@ -84,7 +84,7 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
         usage = usage,
         findings = compared.output,
     )
-    // Written together and only after every step succeeded, so the stored files always belong to the same run
+    // Written together and only after every step succeeded, so a failed run never replaces earlier results
     val store = Store(config.projectRoot)
     store.writeAll(
         mapOf(
