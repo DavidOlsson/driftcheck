@@ -19,3 +19,9 @@ out/
 .env
 .env.*
 local.properties
+
+# The Wikipedia demo: the apps are cloned and the results written by the report workflow
+demo/wikipedia/android/
+demo/wikipedia/ios/
+demo/wikipedia/.driftcheck/*
+!demo/wikipedia/.driftcheck/config.json
