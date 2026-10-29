@@ -71,10 +71,24 @@ class ModelTest {
                 "items[0] (Bad Key): key must be lowercase dot-separated snake_case",
                 "items[0] (Bad Key): description is empty",
                 "items[0] (Bad Key).evidence[0]: file is empty",
-                "items[1] (api.limit): needs at least one piece of evidence",
             ),
             spec.problems(),
         )
+    }
+
+    @Test
+    fun `leaves out items without evidence and keeps their keys`() {
+        val item = SpecItem("api.limit", Section.API, "Limit", "20", listOf(Evidence("Search.swift", 3)))
+        val spec =
+            FeatureSpec(
+                "search",
+                Platform.IOS,
+                "Search",
+                listOf(item, item.copy(key = "input_handling.max_length", evidence = emptyList())),
+            )
+        val kept = spec.withoutUnsupportedItems()
+        assertEquals(listOf("api.limit"), kept.items.map { it.key })
+        assertEquals(listOf("input_handling.max_length"), kept.omitted)
     }
 
     @Test

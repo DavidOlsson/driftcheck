@@ -12,6 +12,7 @@ import driftcheck.config.FeatureConfig
 import driftcheck.model.FeatureSpec
 import driftcheck.model.Platform
 import driftcheck.model.problems
+import driftcheck.model.withoutUnsupportedItems
 
 /** Lets a read-only agent in the platform's source root describe the feature, and validates the answer. */
 fun extractFeature(client: ClaudeClient, config: Config, feature: FeatureConfig, platform: Platform): Structured<FeatureSpec> {
@@ -34,5 +35,5 @@ fun extractFeature(client: ClaudeClient, config: Config, feature: FeatureConfig,
             result.usage,
         )
     }
-    return result
+    return result.copy(output = spec.withoutUnsupportedItems())
 }

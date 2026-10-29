@@ -55,6 +55,17 @@ class ExtractTest {
     }
 
     @Test
+    fun `keeps the description when one item has no evidence, and records the item`() {
+        val withEmpty = spec().replace(
+            "]}]}",
+            "]},{\"key\":\"input_handling.max_length\",\"section\":\"input_handling\",\"description\":\"Max length\",\"evidence\":[]}]}",
+        )
+        val result = extractFeature(FakeClaudeClient.answering(withEmpty), config, feature, Platform.IOS).output
+        assertEquals(listOf("api.limit"), result.items.map { it.key })
+        assertEquals(listOf("input_handling.max_length"), result.omitted)
+    }
+
+    @Test
     fun `refuses a description that breaks the rules`() {
         val bad = spec().replace("api.limit", "API Limit")
         assertContains(
