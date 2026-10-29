@@ -136,8 +136,8 @@ fun planUsage(events: List<JsonObject>): PlanUsage? {
                 "rejected" -> WindowStatus.REJECTED
                 else -> null
             },
-            usedPercent = info.double("utilization")?.let(::toPercent),
-            thresholdPercent = info.double("surpassedThreshold")?.let(::toPercent),
+            usedPercent = info.double("utilization")?.let(::fractionToPercent),
+            thresholdPercent = info.double("surpassedThreshold")?.let(::thresholdToPercent),
             resetsAt = info.double("resetsAt")?.let(::toIso),
         )
         when (info.string("rateLimitType")) {
@@ -148,8 +148,14 @@ fun planUsage(events: List<JsonObject>): PlanUsage? {
     return if (fiveHour == null && weekly == null) null else PlanUsage(fiveHour, weekly)
 }
 
-/** Claude Code reports utilization either as a fraction or as a percentage. */
-private fun toPercent(value: Double): Int = (if (value <= 1) value * 100 else value).roundToInt()
+/**
+ * Claude Code documents utilization as "the fraction of the window used (usually 0-1 ...; values above 1 occur when
+ * usage legitimately runs past a window's cap)", so 1.2 is 120 %, not 1.2 %.
+ */
+private fun fractionToPercent(value: Double): Int = (value * 100).roundToInt()
+
+/** Not documented by Claude Code; a value up to 1 is read as a fraction like utilization, a larger one as a percentage. */
+private fun thresholdToPercent(value: Double): Int = (if (value <= 1) value * 100 else value).roundToInt()
 
 /** A Unix timestamp in seconds or milliseconds. */
 private fun toIso(value: Double): String {

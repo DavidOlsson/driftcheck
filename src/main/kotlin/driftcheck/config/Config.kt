@@ -36,6 +36,10 @@ class ConfigException(message: String, cause: Throwable? = null) : UserException
 
 private val FEATURE_ID = Regex("^[a-z0-9][a-z0-9-]*$")
 
+/** Hints go into the prompt as they are, so they are kept to short pointers. */
+const val MAX_HINTS = 20
+const val MAX_HINT_LENGTH = 200
+
 @Serializable
 data class FeatureConfig(
     /** Stable id used on the command line and in file names, e.g. "search". */
@@ -122,6 +126,11 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
         for (feature in raw.features) {
             if (!FEATURE_ID.matches(feature.id)) add("feature id \"${feature.id}\" must be lowercase letters, digits and dashes")
             if (feature.name.isBlank()) add("feature \"${feature.id}\" needs a name")
+            if (feature.hints.size > MAX_HINTS) add("feature \"${feature.id}\" has ${feature.hints.size} hints, at most $MAX_HINTS")
+            if (feature.hints.any { it.isBlank() }) add("feature \"${feature.id}\" has an empty hint")
+            if (feature.hints.any { it.length > MAX_HINT_LENGTH }) {
+                add("feature \"${feature.id}\" has a hint longer than $MAX_HINT_LENGTH characters; hints are short pointers")
+            }
         }
         val duplicates = raw.features.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
         if (duplicates.isNotEmpty()) add("duplicate feature ids: ${duplicates.joinToString(", ")}")
@@ -133,6 +142,7 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
         Platform.ANDROID to platformRoot(root, raw.platforms.android.path, Platform.ANDROID, allowExternalPaths),
         Platform.IOS to platformRoot(root, raw.platforms.ios.path, Platform.IOS, allowExternalPaths),
     )
+    checkPlatformRoots(root, platforms)
     return Config(raw.name.trim(), root, platforms, raw.features, raw.model, raw.maxBudgetUsd, raw.timeoutMinutes.minutes)
 }
 
@@ -150,6 +160,26 @@ private fun platformRoot(projectRoot: Path, path: String, platform: Platform, al
         )
     }
     return resolved
+}
+
+/**
+ * Each agent may only read its own app. A root that contains `.driftcheck/` would let it read earlier results, which
+ * biases the new description, and overlapping roots would let one platform's agent describe the other's code.
+ */
+private fun checkPlatformRoots(projectRoot: Path, platforms: Map<Platform, Path>) {
+    val problems = buildList {
+        for ((platform, root) in platforms) {
+            if (projectRoot.resolve(CONFIG_DIR).startsWith(root)) {
+                add("platforms.${platform.id}.path must point at the app's source folder, not at a folder that contains $CONFIG_DIR/")
+            }
+        }
+        val android = platforms.getValue(Platform.ANDROID)
+        val ios = platforms.getValue(Platform.IOS)
+        if (android.startsWith(ios) || ios.startsWith(android)) {
+            add("platforms.android.path and platforms.ios.path must be separate folders, not the same or one inside the other")
+        }
+    }
+    if (problems.isNotEmpty()) throw ConfigException("$CONFIG_PATH is invalid:\n" + problems.joinToString("\n") { "  - $it" })
 }
 
 /** Reads `.driftcheck/config.json` under [projectRoot] and checks that both platform roots exist. */

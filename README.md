@@ -52,7 +52,7 @@ driftcheck report search             # rebuilds the report from stored results, 
 }
 ```
 
-`name` is the app's name, shown at the top of every report. `hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
+`name` is the app's name, shown at the top of every report. `hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must be two separate folders inside the project (not the project root itself) unless you pass `--allow-external-paths`. A feature has at most 20 hints of at most 200 characters each.
 
 `compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. It writes:
 

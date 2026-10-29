@@ -66,6 +66,15 @@ class ExtractTest {
     }
 
     @Test
+    fun `stops before the comparison when nothing with evidence is left`() {
+        val empty = spec().replace(Regex("\"evidence\":\\[[^\\]]*\\]"), "\"evidence\":[]")
+        val error = assertFailsWith<ClaudeRunException> { extractFeature(FakeClaudeClient.answering(empty), config, feature, Platform.IOS) }
+        assertContains(error.message!!, "found nothing with evidence for \"search\"")
+        assertContains(error.message!!, "add hints")
+        assertEquals(0.5, error.usage.costUsd)
+    }
+
+    @Test
     fun `refuses a description that breaks the rules`() {
         val bad = spec().replace("api.limit", "API Limit")
         assertContains(

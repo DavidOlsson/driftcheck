@@ -34,5 +34,14 @@ fun extractFeature(client: ClaudeClient, config: Config, feature: FeatureConfig,
             result.usage,
         )
     }
-    return result.copy(output = spec.withoutUnsupportedItems())
+    val supported = spec.withoutUnsupportedItems()
+    // Comparing an empty description would spend another run only to report everything as missing
+    if (supported.items.isEmpty()) {
+        throw ClaudeRunException(
+            "The ${platform.displayName} agent found nothing with evidence for \"${feature.id}\". Check that the feature exists in " +
+                "${config.root(platform)}, and add hints (class names, folders, screens) for it in .driftcheck/config.json.",
+            result.usage,
+        )
+    }
+    return result.copy(output = supported)
 }
