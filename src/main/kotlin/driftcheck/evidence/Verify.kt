@@ -48,7 +48,7 @@ fun verifySpec(spec: FeatureSpec, reader: SourceReader): VerifiedFeatureSpec {
             },
         )
     }
-    return VerifiedFeatureSpec(spec.feature, spec.platform, spec.summary, items, spec.notFound, spec.coverage)
+    return VerifiedFeatureSpec(spec.feature, spec.platform, spec.summary, items, spec.notFound, spec.coverage, spec.omitted)
 }
 
 data class VerificationSummary(val items: Int, val verifiedItems: Int, val evidence: Map<EvidenceStatus, Int>)

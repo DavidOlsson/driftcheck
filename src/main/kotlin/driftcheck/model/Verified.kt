@@ -54,6 +54,8 @@ data class VerifiedFeatureSpec(
     val items: List<VerifiedSpecItem>,
     val notFound: List<String> = emptyList(),
     val coverage: List<SectionCoverage> = emptyList(),
+    /** Keys of items left out because the agent gave no evidence for them. */
+    val omitted: List<String> = emptyList(),
 ) {
     fun toSpec(): FeatureSpec = FeatureSpec(
         feature,
@@ -64,5 +66,6 @@ data class VerifiedFeatureSpec(
         },
         notFound,
         coverage,
+        omitted,
     )
 }

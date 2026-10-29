@@ -40,6 +40,7 @@ class HtmlReportTest {
         "Searches on submit",
         listOf(VerifiedSpecItem("api.limit", Section.API, "Limit", "50", listOf(iosLimit), false)),
         coverage = listOf(SectionCoverage(Section.STORAGE, CoverageStatus.NOT_INSPECTED)),
+        omitted = listOf("input_handling.max_length"),
     )
 
     private fun finding(
@@ -133,6 +134,7 @@ class HtmlReportTest {
         assertContains(report, "<b>iOS:</b> 0 of 1 items verified against the source")
         assertContains(report, "⚠ iOS areas not inspected:</b> Storage")
         assertContains(report, "<b>Looked for but not found:</b> Android: voice search")
+        assertContains(report, "⚠ Left out, no evidence given:</b> iOS: input_handling.max_length")
         assertContains(report, "<b>Tokens:</b> 12,345 in, 678 out")
         assertContains(report, "5-hour window approaching limit (over 75% used), resets 2026-10-13 12:00 UTC")
         assertContains(report, "<b>Generated:</b> 2026-10-13 08:30 UTC by driftcheck")

@@ -2,6 +2,7 @@ package driftcheck.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * The fixed structure every feature description follows. Using the same sections on both platforms is what
@@ -58,6 +59,7 @@ data class SpecItem(
     val description: String,
     /** The concrete value when there is one (a number, a limit, an endpoint), as text. */
     val value: String? = null,
+    @MinItems(1)
     val evidence: List<Evidence>,
 )
 
@@ -94,7 +96,22 @@ data class FeatureSpec(
     val notFound: List<String> = emptyList(),
     /** One entry per section, so a report can show which parts of the feature were actually examined. */
     val coverage: List<SectionCoverage> = emptyList(),
+    /**
+     * Keys of items the agent gave without evidence, which were left out. Set by driftcheck, never by the model, so it
+     * is not part of the schema.
+     */
+    @Transient
+    val omitted: List<String> = emptyList(),
 )
+
+/**
+ * An item without evidence is a claim nothing can confirm, so it is left out. One such item should not cost the
+ * whole description, so its key is kept for the report instead of rejecting the answer.
+ */
+fun FeatureSpec.withoutUnsupportedItems(): FeatureSpec {
+    val (supported, unsupported) = items.partition { it.evidence.isNotEmpty() }
+    return copy(items = supported, omitted = omitted + unsupported.map { it.key })
+}
 
 private val KEY = Regex("^[a-z0-9_]+(\\.[a-z0-9_]+)*$")
 
@@ -109,7 +126,6 @@ fun FeatureSpec.problems(): List<String> = buildList {
         val where = "items[$i] (${item.key})"
         if (!KEY.matches(item.key)) add("$where: key must be lowercase dot-separated snake_case")
         if (item.description.isBlank()) add("$where: description is empty")
-        if (item.evidence.isEmpty()) add("$where: needs at least one piece of evidence")
         item.evidence.forEachIndexed { j, e -> evidenceProblem(e)?.let { add("$where.evidence[$j]: $it") } }
     }
 }
