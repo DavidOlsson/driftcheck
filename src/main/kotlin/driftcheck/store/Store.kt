@@ -25,7 +25,7 @@ class Store(projectRoot: Path) {
 
     fun spec(feature: String, platform: Platform): Path = base.resolve("specs").resolve(feature).resolve("${platform.id}.json")
     fun findings(feature: String): Path = base.resolve("findings").resolve("$feature.json")
-    fun report(feature: String): Path = base.resolve("reports").resolve("$feature.md")
+    fun report(feature: String): Path = base.resolve("reports").resolve("$feature.html")
 
     fun writeText(file: Path, text: String) = writeAll(mapOf(file to text))
 

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Wikipedia: Article search parity report</title>
+<style>:root {
+  --bg: #F4F6F9; --surface: #FFFFFF; --surface-2: #EDF0F5; --fg: #17202B; --muted: #5A6676; --line: #D9DFE7; --focus: #2E4DB0;
+  --sev-high: #B42318; --sev-high-bg: #FCEBE8; --sev-medium: #A84B06; --sev-medium-bg: #FDF1E3;
+  --sev-low: #1D5FB8; --sev-low-bg: #E7EFFA; --sev-info: #5A6676; --sev-info-bg: #EDF0F5;
+  --ok: #1D7A4D; --warn: #A84B06; --android: #0F7468; --ios: #5047B5;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #0E131A; --surface: #151C25; --surface-2: #1C2530; --fg: #E5EAF0; --muted: #96A2B2; --line: #2A3543; --focus: #91A8F6;
+  --sev-high: #FF8B7B; --sev-high-bg: #3A1B17; --sev-medium: #F4A65E; --sev-medium-bg: #382615;
+  --sev-low: #82B2F6; --sev-low-bg: #16263C; --sev-info: #A6B1BF; --sev-info-bg: #1F2833;
+  --ok: #6FD3A1; --warn: #F4A65E; --android: #4FCFBF; --ios: #A9A3F7;
+  color-scheme: dark;
+} }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 64px; display: grid; gap: 24px; }
+h1, h2 { margin: 0; text-wrap: balance; }
+h1 { display: grid; gap: 2px; letter-spacing: -0.01em; }
+h1 .app { font-size: clamp(28px, 4.5vw, 38px); }
+h1 .feature { font-size: clamp(18px, 2.6vw, 22px); font-weight: 500; color: var(--muted); }
+.top { display: grid; gap: 6px; }
+.sub .plat { font-size: 11px; }
+h2 { font-size: 19px; margin-bottom: 12px; }
+h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+p { margin: 0; }
+code { font-family: var(--mono); font-size: 0.88em; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.sub { color: var(--muted); font-size: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 2px; }
+.kpi b { font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 13px; color: var(--muted); }
+.kpi.hi b { color: var(--sev-high); } .kpi.ok b { color: var(--ok); } .kpi.partial b { color: var(--warn); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill i, .fchip i { font-style: normal; font-size: 10px; }
+.s-high { color: var(--sev-high); background: var(--sev-high-bg); }
+.s-medium { color: var(--sev-medium); background: var(--sev-medium-bg); }
+.s-low { color: var(--sev-low); background: var(--sev-low-bg); }
+.s-info { color: var(--sev-info); background: var(--sev-info-bg); }
+.chip { display: inline-block; font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
+.chip.warn { color: var(--warn); border-color: currentColor; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.fchip { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.fchip[aria-pressed="true"] { border-color: currentColor; }
+.fchip[aria-pressed="false"] { color: var(--muted); background: var(--surface); }
+.filters select, .filters input { font: inherit; font-size: 13px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+.filters input { flex: 1 1 200px; }
+.list, .passed, .summaries { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.list { overflow: hidden; }
+.item { border-bottom: 1px solid var(--line); }
+.item:last-of-type { border-bottom: 0; }
+.item > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; }
+.item > summary::-webkit-details-marker { display: none; }
+.item > summary:hover { background: var(--surface-2); }
+.item .t { font-weight: 500; min-width: 0; }
+.item .meta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.item .body { padding: 4px 14px 16px 118px; display: grid; gap: 12px; }
+.vs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.side { background: var(--surface-2); border-radius: 4px; padding: 10px 12px; min-width: 0; display: grid; gap: 4px; align-content: start; font-size: 14px; }
+.side.absent { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--surface) 6px 12px); }
+.plat { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.plat.android { color: var(--android); } .plat.ios { color: var(--ios); }
+.val { font-weight: 700; font-size: 15px; }
+.none { color: var(--muted); font-style: italic; }
+.refs { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.ref { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.ref .ok, .ok { color: var(--ok); }
+.ref.warn, .warn { color: var(--warn); }
+.ref small { font-family: var(--font); }
+.q { font-size: 14px; color: var(--muted); }
+.q b { color: var(--fg); }
+.empty { padding: 18px; color: var(--muted); text-align: center; }
+.questions { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+details.passed > summary, details.summaries > summary { cursor: pointer; padding: 11px 14px; font-weight: 600; }
+.passed ul { margin: 0; padding: 0 14px 12px 38px; display: grid; gap: 8px; }
+.summaries .vs { padding: 0 14px 14px; }
+.checked { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item > summary { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .item .meta { justify-content: flex-start; }
+  .item .body { padding-left: 14px; }
+  .vs { grid-template-columns: minmax(0, 1fr); }
+}
+@media print { .filters { display: none !important; } details { break-inside: avoid; } }</style>
+</head>
+<body>
+<main class="wrap">
+<header class="top"><span class="eyebrow">driftcheck parity report</span><h1><span class="app">Wikipedia</span><span class="feature">Article search</span></h1><p class="sub"><span class="plat android">Android</span> <code>android</code> vs <span class="plat ios">iOS</span> <code>ios</code> · 2026-10-14 05:57 UTC</p></header>
+<div class="kpis">
+  <div class="kpi"><b>17</b><span>Differences</span></div>
+  <div class="kpi hi"><b>3</b><span>High severity</span></div>
+  <div class="kpi"><b>5</b><span>Questions for the team</span></div>
+  <div class="kpi ok"><b>41/41</b><span>References verified</span></div>
+</div>
+<details class="summaries"><summary>How each app implements it</summary><div class="vs">
+  <div class="side"><div class="plat android">Android</div><p>Search runs in SearchActivity, which hosts SearchFragment. That fragment switches between a recent-searches panel (RecentSearchesFragment) and a Compose results panel (SearchResultsFragment and SearchResultsScreen). Results come from a Paging 3 flow, debounced by 200 ms, that fetches a prefix search plus a full-text fallback from the MediaWiki API. The prefix page can also be prepended with one match each from open tabs, history and reading lists. Recent searches are stored in Room. I did not inspect the analytics wiring beyond the Test Kitchen events, the voice-search launcher, or the main-screen search bar.</p></div>
+  <div class="side"><div class="plat ios">iOS</div><p>iOS search is a UISearchController in SearchViewController. Its results controller, SearchResultsViewController, switches between a recent-searches list and a SwiftUI results list. Typing triggers a 100 ms delayed async search. Each search is a prefix search (generator=prefixsearch, limit 24), followed by a full-text search when the prefix search returns fewer than 12 results. Recent searches are stored in a plist-backed MWKRecentSearchList, saved only when a result is tapped. Entry points: the search tab, the article toolbar, widgets via a wikipedia://search deep link, and NSUserActivity. I did not read the language bar controller, the results view model&#39;s highlighting and image loading, or the recent-search entry and plist storage details.</p></div>
+</div></details>
+<section><h2>Differences <small>most severe first</small></h2>
+<div class="filters" id="filters" role="group" aria-label="Filter differences" hidden>
+  <button type="button" class="fchip s-high" data-sev="high" aria-pressed="true"><i aria-hidden="true">▲</i>High <span class="num">3</span></button><button type="button" class="fchip s-medium" data-sev="medium" aria-pressed="true"><i aria-hidden="true">◆</i>Medium <span class="num">10</span></button><button type="button" class="fchip s-low" data-sev="low" aria-pressed="true"><i aria-hidden="true">●</i>Low <span class="num">4</span></button>
+  <select id="category" aria-label="Category"><option value="">All categories</option><option value="behavior">Behavior</option><option value="bug">Possible bug</option><option value="missing">One platform only</option><option value="ui">UI</option></select>
+  <input id="search" type="search" placeholder="Search findings and files" aria-label="Search findings and files">
+</div>
+<div class="list">        <details class="item" data-sev="high" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-high"><i aria-hidden="true">▲</i>High</span></span><span class="t">Android pages results (10 per page); iOS shows a single page of up to 24</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Search and API</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Paging 3 with batch size 10; continuation via gsroffset loads more results on scroll.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsViewModel.kt:29
+private val batchSize = 10"><b class="ok" aria-label="verified">✓</b> SearchResultsViewModel.kt:29</span><span class="ref" title="app/src/main/java/org/wikipedia/search/StandardSearchRepository.kt:59
+currentContinuation = response?.continuation?.gsroffset"><b class="ok" aria-label="verified">✓</b> StandardSearchRepository.kt:59</span></div></div><div class="side"><div class="plat ios">iOS</div><p>No paging; offset always 0 and at most 24 results shown.</p><div class="refs"><span class="ref" title="Wikipedia/Code/WMFSearchFetcher.m:89
+@&quot;gsroffset&quot;: @0,"><b class="ok" aria-label="verified">✓</b> WMFSearchFetcher.m:89</span><span class="ref" title="Wikipedia/Code/WMFSearchFetcher.m:8
+NSUInteger const WMFMaxSearchResultLimit = 24;"><b class="ok" aria-label="verified">✓</b> WMFSearchFetcher.m:8</span></div></div></div><p class="q"><b>Question:</b> Is the lack of load-more on iOS intentional?</p></div>
+        </details>
+        <details class="item" data-sev="high" data-cat="bug">
+          <summary><span class="sevcol"><span class="pill s-high"><i aria-hidden="true">▲</i>High</span></span><span class="t">iOS has no retry button and no loading indicator; Android has both</span><span class="meta"><span class="chip">Possible bug</span><span class="chip">Presentation</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Progress bar while loading; WikiErrorView with retry and back buttons on error.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsScreen.kt:81
+val isLoading = loadState.refresh is LoadState.Loading || loadState.append is LoadState.Loading"><b class="ok" aria-label="verified">✓</b> SearchResultsScreen.kt:81</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Network error shows a no-internet empty state with no retry; no explicit loading indicator found.</p><div class="refs"><span class="ref" title="WMFComponents/Sources/WMFComponents/Components/Search/Results/WMFSearchResultsView.swift:38
+case .noInternetConnection:"><b class="ok" aria-label="verified">✓</b> WMFSearchResultsView.swift:38</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="high" data-cat="missing">
+          <summary><span class="sevcol"><span class="pill s-high"><i aria-hidden="true">▲</i>High</span></span><span class="t">Local matches (open tabs, history, reading lists) only on Android</span><span class="meta"><span class="chip">One platform only</span><span class="chip">Search and API</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>On the first page, up to one match each from tabs, history and reading lists is prepended (term of 2+ characters, not PLACES), with a type icon.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/StandardSearchRepository.kt:42
+resultList.addAll(it.results.take(1))"><b class="ok" aria-label="verified">✓</b> StandardSearchRepository.kt:42</span></div></div><div class="side absent"><div class="plat ios">iOS</div><span class="none">Not found on iOS</span></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Full-text fallback threshold differs (batch size 10 vs 12)</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Search and API</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Full-text search runs when prefix plus local results are fewer than the batch size (10); it is also used for paging.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/StandardSearchRepository.kt:54
+if (resultList.size &lt; batchSize) {"><b class="ok" aria-label="verified">✓</b> StandardSearchRepository.kt:54</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Full-text search runs when prefix results are fewer than 12, with limit 24, and is merged into the prefix results.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsLoader.swift:9
+static let fullTextSearchThreshold = 12"><b class="ok" aria-label="verified">✓</b> SearchResultsLoader.swift:9</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Debounce differs: 200 ms vs 100 ms</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Input</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Search term debounced 200 ms.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsViewModel.kt:30
+private val delayMillis = 200L"><b class="ok" aria-label="verified">✓</b> SearchResultsViewModel.kt:30</span></div></div><div class="side"><div class="plat ios">iOS</div><p>100 ms delay after each text change.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:522
+try? await Task.sleep(for: .milliseconds(100))"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:522</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Query trimming: Android trims, iOS sends the term as typed</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Input</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Query is trimmed on every text change.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:73
+startSearch(queryText.trim(), force = false)"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:73</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Whitespace-only is treated as empty, but the term is not trimmed otherwise.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:508
+if text.wmf_hasNonWhitespaceText {"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:508</span></div></div></div><p class="q"><b>Question:</b> Should iOS trim leading/trailing whitespace before searching?</p></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Recent searches saved at different times</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Storage</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Saved when search closes (result opened), and also when the close button is pressed before clearing.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:288
+addRecentSearch(query)"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:288</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Saved only on result tap or semantic entry tap.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:387
+func saveLastSearch() {"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:387</span></div></div></div><p class="q"><b>Question:</b> Should Android save the query when the user presses the close button?</p></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Language selection UI and persistence differ</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Language</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Language tabs with 2+ languages, else a language button; selected tab persisted in Prefs.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:169
+if (app.languageState.appLanguageCodes.size &gt; 1) {"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:169</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Language bar only if config and user setting are on; language bar controller not read, so persistence is unknown.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:260
+let shouldShow = showLanguageBar &amp;&amp; WMFSettingsDataController.shared.showSearchLanguageBar()"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:260</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Long-press menu and swipe actions on results differ</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Presentation</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Long press shows LongPressMenu; save opens SaveArticleSheetDialog; no swipe actions described.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsFragment.kt:82
+LongPressMenu("><b class="ok" aria-label="verified">✓</b> SearchResultsFragment.kt:82</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Context menu with open, new/background tab, save, view on map and share, plus trailing swipe Share/Save.</p><div class="refs"><span class="ref" title="WMFComponents/Sources/WMFComponents/Components/Search/Results/WMFSearchResultRow.swift:62
+.contextMenu {"><b class="ok" aria-label="verified">✓</b> WMFSearchResultRow.swift:62</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="missing">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Per-language result counts when empty are Android-only</span><span class="meta"><span class="chip">One platform only</span><span class="chip">Search and API</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>With no results, other app languages are queried and a tappable per-language count list is shown.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/StandardSearchRepository.kt:63
+if (resultList.isEmpty() &amp;&amp; response?.continuation == null) {"><b class="ok" aria-label="verified">✓</b> StandardSearchRepository.kt:63</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Just a &#39;No results found&#39; empty view.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController+ResultsList.swift:12
+value: &quot;No results found&quot;"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController+ResultsList.swift:12</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="missing">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Semantic search entry point exists only on iOS</span><span class="meta"><span class="chip">One platform only</span><span class="chip">Search and API</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Optional cirrusSemanticSearch parameter exists but is not passed; SemanticSearchService use not traced.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/dataclient/Service.kt:88
+@Query(&quot;cirrusSemanticSearch&quot;) isSemantic: Boolean? = null"><b class="ok" aria-label="verified">✓</b> Service.kt:88</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Experiment-gated semantic search entry above results opens a semantic sheet.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController+ResultsList.swift:115
+guard dataController.isEntryPointAvailable(languageCode: languageCode) else {"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController+ResultsList.swift:115</span></div></div></div><p class="q"><b>Question:</b> Is semantic search planned for Android?</p></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="missing">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Return-link mode and Places-restricted search only on Android</span><span class="meta"><span class="chip">One platform only</span><span class="chip">Entry points</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Return-link mode returns the title to the caller; PLACES source filters to results with coordinates and changes the hint.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:218
+val intent = Intent().putExtra(SearchActivity.EXTRA_RETURN_LINK_TITLE, item)"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:218</span></div></div><div class="side"><div class="plat ios">iOS</div><p>The edit link screen pushes search with source unknown; no equivalent return or Places mode described.</p><div class="refs"><span class="ref" title="Wikipedia/Code/EditLinkViewController.swift:162
+let searchVC = SearchViewController(source: .unknown)"><b class="ok" aria-label="verified">✓</b> EditLinkViewController.swift:162</span></div></div></div><p class="q"><b>Question:</b> How does iOS return a selected title in the edit-link flow?</p></div>
+        </details>
+        <details class="item" data-sev="medium" data-cat="ui">
+          <summary><span class="sevcol"><span class="pill s-medium"><i aria-hidden="true">◆</i>Medium</span></span><span class="t">Result row: thumbnail size, request width and line limits differ</span><span class="meta"><span class="chip">UI</span><span class="chip">Presentation</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>56dp thumbnail, 8dp radius, 330px requested; subtitle up to 2 lines at 14sp; title has no line limit; 16dp padding.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsScreen.kt:283
+.size(56.dp)"><b class="ok" aria-label="verified">✓</b> SearchResultsScreen.kt:283</span></div></div><div class="side"><div class="plat ios">iOS</div><p>40x40 thumbnail at trailing edge, 3pt radius, 120px requested; title and description limited to one line.</p><div class="refs"><span class="ref" title="WMFComponents/Sources/WMFComponents/Components/Search/Results/WMFSearchResultRow.swift:168
+.frame(width: 40, height: 40)"><b class="ok" aria-label="verified">✓</b> WMFSearchResultRow.swift:168</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="low" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-low"><i aria-hidden="true">●</i>Low</span></span><span class="t">Idle state: Android shows namespace chips and add-language button; iOS shows history behind search</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Presentation</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Recent list with delete-all, namespace chips (User, Portal, Help, Project, Template) and empty message.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/RecentSearchesFragment.kt:43
+private val namespaceHints = listOf(Namespace.USER, Namespace.PORTAL, Namespace.HELP, Namespace.PROJECT, Namespace.TEMPLATE)"><b class="ok" aria-label="verified">✓</b> RecentSearchesFragment.kt:43</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Recent list with Clear and empty message; history list is the background when inactive with a Clear history button.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:530
+showRecentSearches(animated: true)"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:530</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="low" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-low"><i aria-hidden="true">●</i>Low</span></span><span class="t">Search entry points are platform-specific; Android also handles share and process-text intents</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Entry points</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Share and text-selection intents prefill the query; widget launches search.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:157
+if (Intent.ACTION_SEND == intent.action &amp;&amp; Constants.PLAIN_TEXT_MIME_TYPE == intent.type) {"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:157</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Widgets use a deep link; NSUserActivity restores search and Handoff.</p><div class="refs"><span class="ref" title="Wikipedia/Code/WMFAppViewController.swift:1341
+case .search:"><b class="ok" aria-label="verified">✓</b> WMFAppViewController.swift:1341</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="low" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-low"><i aria-hidden="true">●</i>Low</span></span><span class="t">Android delays intent-started searches by 500 ms; iOS has no equivalent</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Input</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>PLACES, VOICE and share/process-text sources start search after 500 ms.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:366
+private const val INTENT_DELAY_MILLIS = 500L"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:366</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Prefilled term searches on appear unless returning from an article.</p><div class="refs"><span class="ref" title="Wikipedia/Code/SearchViewController.swift:425
+if !returningFromArticle, let term = self.prefilledSearchTerm {"><b class="ok" aria-label="verified">✓</b> SearchViewController.swift:425</span></div></div></div></div>
+        </details>
+        <details class="item" data-sev="low" data-cat="behavior">
+          <summary><span class="sevcol"><span class="pill s-low"><i aria-hidden="true">●</i>Low</span></span><span class="t">Submit/keyboard behavior: Android submit only hides keyboard; iOS never dismisses keyboard on scroll</span><span class="meta"><span class="chip">Behavior</span><span class="chip">Input</span></span></summary>
+          <div class="body"><div class="vs"><div class="side"><div class="plat android">Android</div><p>Submit hides the keyboard without a new search.</p><div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchFragment.kt:67
+DeviceUtil.hideSoftKeyboard(requireActivity())"><b class="ok" aria-label="verified">✓</b> SearchFragment.kt:67</span></div></div><div class="side"><div class="plat ios">iOS</div><p>Scrolling never dismisses the keyboard.</p><div class="refs"><span class="ref" title="WMFComponents/Sources/WMFComponents/Components/Search/Results/WMFSearchResultsView.swift:68
+.scrollDismissesKeyboard(.never)"><b class="ok" aria-label="verified">✓</b> WMFSearchResultsView.swift:68</span></div></div></div></div>
+        </details><p class="empty" id="no-match" hidden>No differences match these filters.</p></div>
+</section>
+<section><h2>Questions for the team</h2><ol class="questions"><li>Is the lack of load-more on iOS intentional?</li><li>Should iOS trim leading/trailing whitespace before searching?</li><li>Should Android save the query when the user presses the close button?</li><li>Is semantic search planned for Android?</li><li>How does iOS return a selected title in the edit-link flow?</li></ol></section>
+        <details class="passed"><summary><span class="ok">✓</span> 3 behaviors are the same on both platforms</summary>
+        <ul><li>Recent searches: dedupe to front, swipe delete, confirm clear-all, no max count found<div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/db/RecentSearchDao.kt:14
+@Query(&quot;SELECT * FROM RecentSearch ORDER BY timestamp DESC&quot;)"><b class="ok" aria-label="verified">✓</b> RecentSearchDao.kt:14</span><span class="ref" title="Wikipedia/Code/MWKRecentSearchList.m:50
+[self removeEntryWithListIndex:entry.searchTerm];"><b class="ok" aria-label="verified">✓</b> MWKRecentSearchList.m:50</span></div></li><li>Both use prefix search in namespace 0 plus full-text fallback, cancel in-flight requests, and have no offline cache<div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsViewModel.kt:58
+}.flatMapLatest { (term, lang) -&gt;"><b class="ok" aria-label="verified">✓</b> SearchResultsViewModel.kt:58</span><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:367
+fetcher.cancelAllFetches()"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:367</span></div></li><li>Duplicate searches suppressed and RTL layout follows search language on both<div class="refs"><span class="ref" title="app/src/main/java/org/wikipedia/search/SearchResultsFragment.kt:116
+if (!force &amp;&amp; viewModel.searchTerm.value == term &amp;&amp; viewModel.languageCode.value == searchLanguageCode) {"><b class="ok" aria-label="verified">✓</b> SearchResultsFragment.kt:116</span><span class="ref" title="Wikipedia/Code/SearchResultsViewController.swift:511
+if let lastSearchSiteURL,"><b class="ok" aria-label="verified">✓</b> SearchResultsViewController.swift:511</span></div></li></ul></details>
+<section><h2>How this was checked</h2><ul class="checked"><li><b>Android:</b> 69 of 69 items verified against the source</li><li><b>iOS:</b> 71 of 71 items verified against the source</li><li><b>Findings:</b> 41 of 41 source references verified. A ✓ means the quoted line was found near the cited line.</li><li><b>Looked for but not found:</b> Android: Maximum count for recent searches (no limit found in the DAO or fragment); Android: Explicit max query length; Android: Explicit request timeout or retry policy specific to search; Android: Voice search launcher code (not inspected); Android: SemanticSearchService usage (file not read); Android: Long-press menu contents (LongPressMenu not read); iOS: Maximum number of recent search entries (no limit found in MWKRecentSearchList or MWKList); iOS: Explicit request timeout or retry for search; iOS: Explicit loading indicator during search; iOS: Retry button on error state; iOS: Text highlighting of the query inside result titles (not confirmed; the view model was not read); iOS: Use of the &#39;did you mean&#39; suggestion in the UI; iOS: Paging or load-more of results</li><li><b>Model:</b> <code>claude-sonnet-5-5</code> via Claude Code · <b>Tokens:</b> 603,543 in, 49,304 out · <b>Plan usage:</b> 5-hour window OK, resets 2026-10-14 10:40 UTC</li><li><b>Generated:</b> 2026-10-14 05:57 UTC by driftcheck</li></ul></section>
+</main>
+<script>(function () {
+  var filters = document.getElementById("filters");
+  if (!filters) return;
+  filters.hidden = false;
+  var items = Array.prototype.slice.call(document.querySelectorAll(".item"));
+  var noMatch = document.getElementById("no-match");
+  var category = document.getElementById("category");
+  var search = document.getElementById("search");
+  var chips = Array.prototype.slice.call(filters.querySelectorAll(".fchip"));
+  function update() {
+    var severities = chips.filter(function (c) { return c.getAttribute("aria-pressed") === "true"; }).map(function (c) { return c.dataset.sev; });
+    var query = search.value.trim().toLowerCase();
+    var shown = 0;
+    items.forEach(function (item) {
+      var text = (item.textContent + " " + Array.prototype.map.call(item.querySelectorAll("[title]"), function (e) { return e.title; }).join(" ")).toLowerCase();
+      var visible = severities.indexOf(item.dataset.sev) >= 0 && (!category.value || item.dataset.cat === category.value) && (!query || text.indexOf(query) >= 0);
+      item.hidden = !visible;
+      if (visible) shown++;
+    });
+    if (noMatch) noMatch.hidden = shown > 0;
+  }
+  chips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+      update();
+    });
+  });
+  category.addEventListener("change", update);
+  search.addEventListener("input", update);
+})();</script>
+</body>
+</html>

@@ -35,6 +35,7 @@ driftcheck report search             # rebuilds the report from stored results, 
 ```json
 {
   "version": 1,
+  "name": "Wikipedia",
   "platforms": {
     "android": { "path": "android" },
     "ios": { "path": "ios" }
@@ -47,13 +48,15 @@ driftcheck report search             # rebuilds the report from stored results, 
 }
 ```
 
-`hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
+`name` is the app's name, shown at the top of every report. `hints` are optional pointers (class names, folders, screens) that help Claude find the feature faster. Platform paths must lie inside the project unless you pass `--allow-external-paths`.
 
 `compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. It writes:
 
 - `.driftcheck/specs/<feature>/{android,ios}.json`: the verified descriptions
 - `.driftcheck/findings/<feature>.json`: the findings, with the model and usage of the run
-- `.driftcheck/reports/<feature>.md`: a readable report with behavior differences, possible bugs, features on one platform only, UI differences, what is the same, questions for the team, and how it was checked
+- `.driftcheck/reports/<feature>.html`: the report, one self-contained HTML file that opens in any browser, also offline. It starts with the number of differences, how many are high severity, the questions for the team and how much evidence was verified. Below that, every difference is listed most severe first, filterable by severity and category and searchable by text or file name, with both platforms side by side and every source reference marked as verified or not. What is the same on both platforms and how the run was checked come last.
+
+See [examples/wikipedia-search.html](examples/wikipedia-search.html) (download it and open it in a browser) for a real report on the search feature of the open source Wikipedia apps.
 
 ## How the agent is restricted
 
@@ -70,7 +73,7 @@ The analyzed code is treated as data: prompts say so, and nothing in the reposit
 
 Every item in a description cites a file, a line and a short verbatim quote. driftcheck checks each one against the source and marks it `verified`, `line_exists`, `quote_not_found`, `line_out_of_range` or `file_not_found`. Paths are resolved strictly inside the platform root (no absolute paths, `..` or symlinks out of it).
 
-Findings may only cite evidence from the two descriptions, and each reference keeps its checked status. The report marks references that could not be confirmed with ⚠️ and lists findings without any source.
+Findings may only cite evidence from the two descriptions, and each reference keeps its checked status. The report marks references that could not be confirmed with ⚠ and flags findings without any source.
 
 ## Usage and limits
 

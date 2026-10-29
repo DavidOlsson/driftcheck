@@ -26,7 +26,7 @@ class StoreTest {
         store.writeText(store.report("search"), "# Report\n")
         store.writeJson(store.findings("search"), Usage.serializer(), Usage(1, 2, 0.5))
 
-        assertEquals("# Report\n", project.resolve(".driftcheck/reports/search.md").readText())
+        assertEquals("# Report\n", project.resolve(".driftcheck/reports/search.html").readText())
         assertEquals(Usage(1, 2, 0.5), store.readJson(store.findings("search"), Usage.serializer(), "Run compare."))
         assertEquals(project.toAbsolutePath().resolve(".driftcheck/specs/search/ios.json"), store.spec("search", Platform.IOS))
         // No temporary files are left behind
@@ -46,13 +46,13 @@ class StoreTest {
 
         val error = assertFailsWith<UserException> { store.writeText(store.report("search"), "x") }
         assertContains(error.message!!, "symlink")
-        assertFalse(outside.resolve("search.md").exists())
+        assertFalse(outside.resolve("search.html").exists())
     }
 
     @Test
     fun `replaces a symlink at the target instead of following it`() {
         val outside = Files.createTempFile("driftcheck-outside", ".md").apply { writeText("keep") }
-        project.resolve(".driftcheck/reports").createDirectories().resolve("search.md").createSymbolicLinkPointingTo(outside)
+        project.resolve(".driftcheck/reports").createDirectories().resolve("search.html").createSymbolicLinkPointingTo(outside)
 
         store.writeText(store.report("search"), "new")
 
@@ -73,7 +73,7 @@ class StoreTest {
 
     @Test
     fun `writes files that belong together all or not at all`() {
-        project.resolve(".driftcheck/reports/search.md").createDirectories().resolve("blocker").writeText("x")
+        project.resolve(".driftcheck/reports/search.html").createDirectories().resolve("blocker").writeText("x")
 
         val error = assertFailsWith<UserException> {
             store.writeAll(mapOf(store.findings("search") to "{}", store.report("search") to "# Report"))

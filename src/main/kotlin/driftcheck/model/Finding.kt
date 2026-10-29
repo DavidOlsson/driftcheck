@@ -38,7 +38,12 @@ enum class Severity {
 }
 
 @Serializable
-data class PlatformSide(val summary: String, val evidence: List<Evidence>)
+data class PlatformSide(
+    val summary: String,
+    val evidence: List<Evidence>,
+    /** The concrete value on this platform in a few words, such as "200 ms", so a reader sees the difference at a glance. */
+    val value: String? = null,
+)
 
 /** One finding as the comparison step returns it. */
 @Serializable
@@ -60,7 +65,7 @@ data class Finding(
 data class CompareOutput(val findings: List<Finding>)
 
 @Serializable
-data class VerifiedPlatformSide(val summary: String, val evidence: List<VerifiedEvidence>)
+data class VerifiedPlatformSide(val summary: String, val evidence: List<VerifiedEvidence>, val value: String? = null)
 
 /**
  * A finding whose evidence was replaced by the matching checked evidence from the descriptions, so a report can tell
@@ -81,7 +86,7 @@ data class VerifiedFinding(
 
     /** The finding without its checked statuses, so it can be matched with freshly verified descriptions. */
     fun toFinding(): Finding {
-        fun VerifiedPlatformSide.plain() = PlatformSide(summary, evidence.map { Evidence(it.file, it.line, it.quote) })
+        fun VerifiedPlatformSide.plain() = PlatformSide(summary, evidence.map { Evidence(it.file, it.line, it.quote) }, value)
         return Finding(category, severity, title, keys, android?.plain(), ios?.plain(), question)
     }
 }

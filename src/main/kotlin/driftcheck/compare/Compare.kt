@@ -34,6 +34,7 @@ val COMPARE_SYSTEM_PROMPT = """
     - Prefer one finding per distinct difference. Do not bundle unrelated differences into one "extras" finding.
     - Severity: "high" (users clearly notice or results differ), "medium", "low", "info".
     - "keys" lists the description item keys the finding is about. "android" or "ios" is null when the behavior does not exist on that platform.
+    - Give each side a "value": the concrete value or behavior on that platform in a few words, such as "200 ms", "Pages of 10" or "Not trimmed", so a reader sees the difference at a glance. Use the "summary" for the explanation.
     - Use only evidence that appears in the descriptions. Never invent files, lines or values.
     - Items marked "verified": false could not be confirmed against the source code; mention that uncertainty in the summary when it matters.
     - A section marked "not_inspected" on one platform means absence there is unknown, not confirmed. Do not report "missing" based only on it; mention the gap instead.
@@ -70,7 +71,7 @@ private fun evidenceIndex(spec: VerifiedFeatureSpec): Map<String, VerifiedEviden
  * checked, not to whatever the comparison step copied.
  */
 private fun withStatus(side: PlatformSide?, index: Map<String, VerifiedEvidence>): VerifiedPlatformSide? =
-    side?.let { s -> VerifiedPlatformSide(s.summary, s.evidence.mapNotNull { index["${it.file}:${it.line}"] }.distinct()) }
+    side?.let { s -> VerifiedPlatformSide(s.summary, s.evidence.mapNotNull { index["${it.file}:${it.line}"] }.distinct(), s.value) }
 
 /**
  * Keeps only evidence that exists in the two descriptions, so the comparison step cannot add file references the

@@ -66,7 +66,7 @@ class CompareTest {
                 "ios":{"summary":"50","evidence":[{"file":"Search.swift","line":5}]},
                 "question":"Intentional?"}]}""",
         )
-        val config = parseConfig("""{"version":1,"platforms":{"android":{"path":"a"},"ios":{"path":"i"}}}""", Path.of("/p"))
+        val config = parseConfig("""{"version":1,"name":"Test","platforms":{"android":{"path":"a"},"ios":{"path":"i"}}}""", Path.of("/p"))
 
         val result = compareSpecs(client, config, android, ios, Path.of("/tmp/empty"))
 
