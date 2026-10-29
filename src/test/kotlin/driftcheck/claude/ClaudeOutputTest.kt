@@ -34,12 +34,25 @@ class ClaudeOutputTest {
         val events = listOf(
             """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"five_hour","utilization":0.42,"resetsAt":1760000000}}""",
             """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","rateLimitType":"five_hour","surpassedThreshold":75}}""",
-            """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"seven_day","utilization":12,"resetsAt":1760000000000}}""",
+            """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"seven_day","utilization":0.12,"resetsAt":1760000000000}}""",
             success,
         )
         val plan = parseClaudeOutput(events.joinToString("\n"), "", 0, "the test run").usage.plan!!
         assertEquals(PlanWindow(WindowStatus.ALLOWED_WARNING, 42, 75, "2025-10-09T08:53:20Z"), plan.fiveHour)
         assertEquals(PlanWindow(WindowStatus.ALLOWED, 12, null, "2025-10-09T08:53:20Z"), plan.weekly)
+    }
+
+    @Test
+    fun `reads utilization as a fraction, also when usage runs past the cap`() {
+        fun used(utilization: String) = parseClaudeOutput(
+            """{"type":"rate_limit_event","rate_limit_info":{"rateLimitType":"five_hour","utilization":$utilization}}""" + "\n" + success,
+            "",
+            0,
+            "x",
+        ).usage.plan!!.fiveHour!!.usedPercent
+        assertEquals(1, used("0.01"))
+        assertEquals(100, used("1"))
+        assertEquals(120, used("1.2"))
     }
 
     @Test
