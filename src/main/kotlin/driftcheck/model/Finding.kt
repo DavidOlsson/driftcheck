@@ -78,6 +78,12 @@ data class VerifiedFinding(
     val question: String? = null,
 ) {
     fun side(platform: Platform): VerifiedPlatformSide? = if (platform == Platform.ANDROID) android else ios
+
+    /** The finding without its checked statuses, so it can be matched with freshly verified descriptions. */
+    fun toFinding(): Finding {
+        fun VerifiedPlatformSide.plain() = PlatformSide(summary, evidence.map { Evidence(it.file, it.line, it.quote) })
+        return Finding(category, severity, title, keys, android?.plain(), ios?.plain(), question)
+    }
 }
 
 fun CompareOutput.problems(): List<String> = buildList {

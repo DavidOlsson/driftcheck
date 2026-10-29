@@ -52,15 +52,17 @@ English everywhere: code, comments, CLI output, reports, documentation and every
 ## Structure
 One Gradle module, package `driftcheck`:
 ```
-Main.kt     entry point: argument handling, exit codes
-process/    CommandRunner: runs external programs (claude) without a shell, always with a timeout
-claude/     claude -p: arguments and environment (claudeArgs, claudeEnv), stream-json parsing, ClaudeClient
-config/     .driftcheck/config.json: loading and validation
-model/      feature descriptions, findings, usage; the JSON schema for model output comes from the same classes
-source/     SourceReader: reads source files, never outside a platform's root
-evidence/   checks each piece of evidence (file, line, quote) against the source
-extract/    prompts and one read-only claude run per platform that describes a feature
-compare/    one claude run without tools that compares the two verified descriptions
-store/      writes results only inside .driftcheck/, never through symlinks
+Main.kt       entry point: argument handling, exit codes
+commands/     one function per command (init, compare, verify, report), with their dependencies passed in
+config/       .driftcheck/config.json loading and validation
+claude/       the arguments and environment for claude -p (claudeArgs, claudeEnv), ClaudeClient, stream-json parsing
+model/        serializable descriptions, findings and usage; the JSON schema for structured output
+extract/      prompts and the per-platform description run
+evidence/     deterministic evidence verification
+compare/      the tool-less comparison run and sanitizeFindings
+report/       Markdown report rendering
+store/        writes results inside .driftcheck/, never through symlinks
+process/      CommandRunner: runs external programs (claude) without a shell, always with a timeout
+source/       SourceReader: reads source files, never outside a platform's root
 ```
-Packages for commands and reports are added when a task needs them.
+Test fixtures: `src/test/resources/twin-app` is a small synthetic Kotlin and Swift app with known differences.

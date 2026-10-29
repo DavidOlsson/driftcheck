@@ -70,4 +70,17 @@ class StoreTest {
         store.writeText(store.findings("x"), "{not json")
         assertFailsWith<UserException> { store.readJson(store.findings("x"), Usage.serializer(), "Run compare.") }
     }
+
+    @Test
+    fun `writes files that belong together all or not at all`() {
+        project.resolve(".driftcheck/reports/search.md").createDirectories().resolve("blocker").writeText("x")
+
+        val error = assertFailsWith<UserException> {
+            store.writeAll(mapOf(store.findings("search") to "{}", store.report("search") to "# Report"))
+        }
+
+        assertContains(error.message!!, "is a directory")
+        assertFalse(store.findings("search").exists())
+        assertEquals(emptyList(), project.resolve(".driftcheck/findings").listDirectoryEntries())
+    }
 }
