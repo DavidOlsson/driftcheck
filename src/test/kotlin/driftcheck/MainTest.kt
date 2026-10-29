@@ -29,7 +29,7 @@ class MainTest {
     fun `prints the version from the build`() {
         val result = runWith("--version")
         assertEquals(0, result.exitCode)
-        assertEquals("0.1.0", result.out.trim())
+        assertEquals(System.getProperty("driftcheck.expectedVersion"), result.out.trim())
     }
 
     @Test
