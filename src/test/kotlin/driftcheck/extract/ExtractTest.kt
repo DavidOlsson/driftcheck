@@ -45,7 +45,9 @@ class ExtractTest {
 
     @Test
     fun `refuses a description of another feature or platform`() {
-        assertFailsWith<ClaudeRunException> { extractFeature(FakeClaudeClient.answering(spec(feature = "login")), config, feature, Platform.IOS) }
+        assertFailsWith<ClaudeRunException> {
+            extractFeature(FakeClaudeClient.answering(spec(feature = "login")), config, feature, Platform.IOS)
+        }
         val error = assertFailsWith<ClaudeRunException> {
             extractFeature(FakeClaudeClient.answering(spec(platform = "android")), config, feature, Platform.IOS)
         }
@@ -56,7 +58,9 @@ class ExtractTest {
     fun `refuses a description that breaks the rules`() {
         val bad = spec().replace("api.limit", "API Limit")
         assertContains(
-            assertFailsWith<ClaudeRunException> { extractFeature(FakeClaudeClient.answering(bad), config, feature, Platform.IOS) }.message!!,
+            assertFailsWith<ClaudeRunException> {
+                extractFeature(FakeClaudeClient.answering(bad), config, feature, Platform.IOS)
+            }.message!!,
             "snake_case",
         )
     }

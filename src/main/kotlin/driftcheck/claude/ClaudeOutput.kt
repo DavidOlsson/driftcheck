@@ -19,8 +19,7 @@ import java.time.Instant
 import kotlin.math.roundToInt
 
 /** A Claude run that failed in an expected way. Carries what the run used, because a failed run counts too. */
-class ClaudeRunException(message: String, val usage: Usage = Usage.NONE, cause: Throwable? = null) :
-    UserException(message, cause)
+class ClaudeRunException(message: String, val usage: Usage = Usage.NONE, cause: Throwable? = null) : UserException(message, cause)
 
 data class ClaudeResult(
     /** The structured answer, still unvalidated. */
@@ -29,19 +28,19 @@ data class ClaudeResult(
 )
 
 private val STOP_REASONS = mapOf(
-    "error_max_budget_usd" to "it reached the budget limit. Raise maxBudgetUsd in .driftcheck/config.json, or add hints for the feature so the agent finds it faster",
+    "error_max_budget_usd" to
+        "it reached the budget limit. Raise maxBudgetUsd in .driftcheck/config.json, or add hints for the feature so the agent finds it faster",
     "error_max_turns" to "it reached the turn limit. Add hints for the feature",
     "error_max_structured_output_retries" to "it could not produce an answer in the expected structure",
     "error_during_execution" to "an error occurred while it was running",
 )
 
 /** A missing or expired login is the most common first-run failure, so it gets a concrete next step. */
-fun withLoginHint(message: String): String =
-    if (Regex("401|authenticat|log ?in|oauth", RegexOption.IGNORE_CASE).containsMatchIn(message)) {
-        "$message Run \"claude\" in a terminal and log in (/login), then try again."
-    } else {
-        message
-    }
+fun withLoginHint(message: String): String = if (Regex("401|authenticat|log ?in|oauth", RegexOption.IGNORE_CASE).containsMatchIn(message)) {
+    "$message Run \"claude\" in a terminal and log in (/login), then try again."
+} else {
+    message
+}
 
 /**
  * Reads the stream-json output of `claude -p`: the final result event and the plan usage events before it.
@@ -53,7 +52,9 @@ fun parseClaudeOutput(stdout: String, stderr: String, exitCode: Int, where: Stri
     if (result == null) {
         val detail = stderr.ifBlank { stdout }.trim().lines().takeLast(3).joinToString(" ").take(300)
         throw ClaudeRunException(
-            withLoginHint("Claude Code did not return a result for $where (exit code $exitCode)" + if (detail.isEmpty()) "." else ": $detail"),
+            withLoginHint(
+                "Claude Code did not return a result for $where (exit code $exitCode)" + if (detail.isEmpty()) "." else ": $detail",
+            ),
         )
     }
 

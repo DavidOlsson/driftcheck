@@ -13,7 +13,9 @@ class UsageFormatTest {
         assertEquals("not reported by Claude Code for this run", planUsageLabel(Usage()))
         assertEquals(
             "5-hour window 42% used · weekly limit limit reached, resets 2026-10-20 00:00 UTC",
-            planUsageLabel(Usage(plan = PlanUsage(PlanWindow(usedPercent = 42), PlanWindow(WindowStatus.REJECTED, resetsAt = "2026-10-20T00:00:00Z")))),
+            planUsageLabel(
+                Usage(plan = PlanUsage(PlanWindow(usedPercent = 42), PlanWindow(WindowStatus.REJECTED, resetsAt = "2026-10-20T00:00:00Z"))),
+            ),
         )
     }
 

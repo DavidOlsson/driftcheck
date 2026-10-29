@@ -164,6 +164,7 @@ private fun runCommand(options: Options, out: PrintStream, env: Environment): In
             val file = initProject(projectRoot, options.force)
             out.println("Created ${relative(file)}. $INIT_NEXT_STEP")
         }
+
         "compare" -> {
             val feature = operand("feature")
             val result = runCompare(config(), feature, Deps(env.claude(), env.now, out::println))
@@ -172,15 +173,18 @@ private fun runCommand(options: Options, out: PrintStream, env: Environment): In
             out.println("Report: ${relative(result.reportFile)}")
             printUsage(out, result.usage, env)
         }
+
         "verify" -> {
             val specFile = env.workingDir.resolve(operand("description file"))
             val (spec, summary) = verifySpecFile(config(), specFile)
             out.println(terminalSafe(formatSummary(spec, summary)))
         }
+
         "report" -> {
             val file = rebuildReport(config(), operand("feature"))
             out.println("Report: ${relative(file)}")
         }
+
         else -> throw UsageException("unknown command \"$command\".")
     }
     return 0

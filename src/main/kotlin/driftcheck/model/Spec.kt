@@ -9,14 +9,29 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 enum class Section {
-    @SerialName("entry_points") ENTRY_POINTS,
-    @SerialName("input_handling") INPUT_HANDLING,
-    @SerialName("api") API,
-    @SerialName("localization") LOCALIZATION,
-    @SerialName("presentation") PRESENTATION,
-    @SerialName("storage") STORAGE,
-    @SerialName("other") OTHER,
-    @SerialName("constants") CONSTANTS,
+    @SerialName("entry_points")
+    ENTRY_POINTS,
+
+    @SerialName("input_handling")
+    INPUT_HANDLING,
+
+    @SerialName("api")
+    API,
+
+    @SerialName("localization")
+    LOCALIZATION,
+
+    @SerialName("presentation")
+    PRESENTATION,
+
+    @SerialName("storage")
+    STORAGE,
+
+    @SerialName("other")
+    OTHER,
+
+    @SerialName("constants")
+    CONSTANTS,
     ;
 
     val id: String get() = name.lowercase()
@@ -48,11 +63,15 @@ data class SpecItem(
 
 @Serializable
 enum class CoverageStatus {
-    @SerialName("covered") COVERED,
-    @SerialName("not_found") NOT_FOUND,
+    @SerialName("covered")
+    COVERED,
+
+    @SerialName("not_found")
+    NOT_FOUND,
 
     /** Makes gaps visible instead of looking like the platform has nothing there. */
-    @SerialName("not_inspected") NOT_INSPECTED,
+    @SerialName("not_inspected")
+    NOT_INSPECTED,
 }
 
 @Serializable

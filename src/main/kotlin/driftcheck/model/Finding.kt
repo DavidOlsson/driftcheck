@@ -7,19 +7,24 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class FindingCategory {
     /** Users get different behavior on the two platforms. */
-    @SerialName("behavior") BEHAVIOR,
+    @SerialName("behavior")
+    BEHAVIOR,
 
     /** Looks like a defect or gap on one platform. */
-    @SerialName("bug") BUG,
+    @SerialName("bug")
+    BUG,
 
     /** Exists on one platform only. */
-    @SerialName("missing") MISSING,
+    @SerialName("missing")
+    MISSING,
 
     /** Different presentation or interaction, same underlying behavior. */
-    @SerialName("ui") UI,
+    @SerialName("ui")
+    UI,
 
     /** The platforms agree. Reported so a reader can see what was checked. */
-    @SerialName("equal") EQUAL,
+    @SerialName("equal")
+    EQUAL,
     ;
 
     val id: String get() = name.lowercase()
@@ -28,10 +33,17 @@ enum class FindingCategory {
 /** Most severe first. */
 @Serializable
 enum class Severity {
-    @SerialName("high") HIGH,
-    @SerialName("medium") MEDIUM,
-    @SerialName("low") LOW,
-    @SerialName("info") INFO,
+    @SerialName("high")
+    HIGH,
+
+    @SerialName("medium")
+    MEDIUM,
+
+    @SerialName("low")
+    LOW,
+
+    @SerialName("info")
+    INFO,
     ;
 
     val id: String get() = name.lowercase()

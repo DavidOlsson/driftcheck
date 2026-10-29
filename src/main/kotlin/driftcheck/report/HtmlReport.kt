@@ -55,7 +55,9 @@ fun html(text: String): String = buildString(text.length) {
 }
 
 private fun severityPill(severity: Severity) =
-    """<span class="pill s-${severity.id}"><i aria-hidden="true">${SEVERITY_SYMBOLS.getValue(severity)}</i>${severity.id.replaceFirstChar { it.uppercase() }}</span>"""
+    """<span class="pill s-${severity.id}"><i aria-hidden="true">${SEVERITY_SYMBOLS.getValue(severity)}</i>${severity.id.replaceFirstChar {
+        it.uppercase()
+    }}</span>"""
 
 private fun reference(e: VerifiedEvidence): String {
     val name = e.file.substringAfterLast('/')
@@ -63,7 +65,9 @@ private fun reference(e: VerifiedEvidence): String {
     return if (e.status == EvidenceStatus.VERIFIED) {
         """<span class="ref" title="$tooltip"><b class="ok" aria-label="verified">✓</b> ${html(name)}:${e.line}</span>"""
     } else {
-        """<span class="ref warn" title="$tooltip"><b aria-label="not verified">⚠</b> ${html(name)}:${e.line} <small>${e.status.id.replace('_', ' ')}</small></span>"""
+        """<span class="ref warn" title="$tooltip"><b aria-label="not verified">⚠</b> ${html(
+            name,
+        )}:${e.line} <small>${e.status.id.replace('_', ' ')}</small></span>"""
     }
 }
 
@@ -87,7 +91,11 @@ private fun findingItem(f: VerifiedFinding, specs: List<VerifiedFeatureSpec>): S
     val question = f.question?.takeIf { it.isNotBlank() }?.let { """<p class="q"><b>Question:</b> ${html(it)}</p>""" } ?: ""
     return """
         <details class="item" data-sev="${f.severity.id}" data-cat="${f.category.id}">
-          <summary><span class="sevcol">${severityPill(f.severity)}</span><span class="t">${html(f.title)}</span><span class="meta"><span class="chip">${CATEGORY_LABELS.getValue(f.category)}</span>$area$unsourced</span></summary>
+          <summary><span class="sevcol">${severityPill(
+        f.severity,
+    )}</span><span class="t">${html(
+        f.title,
+    )}</span><span class="meta"><span class="chip">${CATEGORY_LABELS.getValue(f.category)}</span>$area$unsourced</span></summary>
           <div class="body"><div class="vs">${side(Platform.ANDROID, f.android)}${side(Platform.IOS, f.ios)}</div>$question</div>
         </details>
     """.trimIndent()
@@ -102,18 +110,28 @@ private fun checkedLines(run: CompareRun, android: VerifiedFeatureSpec, ios: Ver
     if (refs.isNotEmpty()) {
         val verified = refs.count { it.status == EvidenceStatus.VERIFIED }
         val marked = if (verified < refs.size) "; ⚠ marks the ones that could not be confirmed" else ""
-        add("<li><b>Findings:</b> $verified of ${refs.size} source references verified$marked. A ✓ means the quoted line was found near the cited line.</li>")
+        add(
+            "<li><b>Findings:</b> $verified of ${refs.size} source references verified$marked. A ✓ means the quoted line was found near the cited line.</li>",
+        )
     }
     for (spec in listOf(android, ios)) {
         val gaps = spec.coverage.filter { it.status == CoverageStatus.NOT_INSPECTED }.map { SECTION_LABELS.getValue(it.section) }
         if (gaps.isNotEmpty()) {
-            add("<li class=\"warn\"><b>⚠ ${spec.platform.displayName} areas not inspected:</b> ${gaps.joinToString(", ")}. Differences there may be missing from this report.</li>")
+            add(
+                "<li class=\"warn\"><b>⚠ ${spec.platform.displayName} areas not inspected:</b> ${gaps.joinToString(
+                    ", ",
+                )}. Differences there may be missing from this report.</li>",
+            )
         }
     }
     val notFound = android.notFound.map { "Android: $it" } + ios.notFound.map { "iOS: $it" }
     if (notFound.isNotEmpty()) add("<li><b>Looked for but not found:</b> ${notFound.joinToString("; ") { html(it) }}</li>")
     // Stored results may have been edited by someone else, so even these fields are treated as untrusted
-    add("<li><b>Model:</b> <code>${html(run.model)}</code> via Claude Code · <b>Tokens:</b> ${tokenCounts(run.usage)} · <b>Plan usage:</b> ${html(planUsageLabel(run.usage))}</li>")
+    add(
+        "<li><b>Model:</b> <code>${html(
+            run.model,
+        )}</code> via Claude Code · <b>Tokens:</b> ${tokenCounts(run.usage)} · <b>Plan usage:</b> ${html(planUsageLabel(run.usage))}</li>",
+    )
     add("<li><b>Generated:</b> ${html(formatUtc(run.generatedAt))} by driftcheck</li>")
 }
 
@@ -153,8 +171,16 @@ fun renderCompareReport(subject: ReportSubject, run: CompareRun, android: Verifi
 
     val filters = """
         <div class="filters" id="filters" role="group" aria-label="Filter differences" hidden>
-          ${filterSeverities.joinToString("") { s -> """<button type="button" class="fchip s-${s.id}" data-sev="${s.id}" aria-pressed="true"><i aria-hidden="true">${SEVERITY_SYMBOLS.getValue(s)}</i>${s.id.replaceFirstChar { it.uppercase() }} <span class="num">${differences.count { it.severity == s }}</span></button>""" }}
-          <select id="category" aria-label="Category"><option value="">All categories</option>${filterCategories.joinToString("") { """<option value="${it.id}">${CATEGORY_LABELS.getValue(it)}</option>""" }}</select>
+          ${filterSeverities.joinToString("") { s ->
+        """<button type="button" class="fchip s-${s.id}" data-sev="${s.id}" aria-pressed="true"><i aria-hidden="true">${SEVERITY_SYMBOLS.getValue(
+            s,
+        )}</i>${s.id.replaceFirstChar {
+            it.uppercase()
+        }} <span class="num">${differences.count { it.severity == s }}</span></button>"""
+    }}
+          <select id="category" aria-label="Category"><option value="">All categories</option>${filterCategories.joinToString("") {
+        """<option value="${it.id}">${CATEGORY_LABELS.getValue(it)}</option>"""
+    }}</select>
           <input id="search" type="search" placeholder="Search findings and files" aria-label="Search findings and files">
         </div>
     """.trimIndent()
@@ -162,17 +188,31 @@ fun renderCompareReport(subject: ReportSubject, run: CompareRun, android: Verifi
     val list = if (differences.isEmpty()) {
         """<p class="empty">No differences found.</p>"""
     } else {
-        """<div class="list">${differences.joinToString("\n") { findingItem(it, specs) }}<p class="empty" id="no-match" hidden>No differences match these filters.</p></div>"""
+        """<div class="list">${differences.joinToString("\n") {
+            findingItem(it, specs)
+        }}<p class="empty" id="no-match" hidden>No differences match these filters.</p></div>"""
     }
 
-    val questionList = if (questions.isEmpty()) "" else """
-        <section><h2>Questions for the team</h2><ol class="questions">${questions.joinToString("") { "<li>${html(it)}</li>" }}</ol></section>
-    """.trimIndent()
+    val questionList = if (questions.isEmpty()) {
+        ""
+    } else {
+        """
+        <section><h2>Questions for the team</h2><ol class="questions">${questions.joinToString("") {
+            "<li>${html(it)}</li>"
+        }}</ol></section>
+        """.trimIndent()
+    }
 
-    val sameList = if (same.isEmpty()) "" else """
+    val sameList = if (same.isEmpty()) {
+        ""
+    } else {
+        """
         <details class="passed"><summary><span class="ok">✓</span> ${same.size} ${if (same.size == 1) "behavior is" else "behaviors are"} the same on both platforms</summary>
-        <ul>${same.joinToString("") { f -> "<li>${html(f.title)}<div class=\"refs\">${references(f).joinToString("") { reference(it) }}</div></li>" }}</ul></details>
-    """.trimIndent()
+        <ul>${same.joinToString("") { f ->
+            "<li>${html(f.title)}<div class=\"refs\">${references(f).joinToString("") { reference(it) }}</div></li>"
+        }}</ul></details>
+        """.trimIndent()
+    }
 
     val summaries = """
         <details class="summaries"><summary>How each app implements it</summary><div class="vs">
@@ -196,7 +236,9 @@ fun renderCompareReport(subject: ReportSubject, run: CompareRun, android: Verifi
         "<main class=\"wrap\">",
         "<header class=\"top\"><span class=\"eyebrow\">driftcheck parity report</span>" +
             "<h1><span class=\"app\">${html(subject.appName)}</span><span class=\"feature\">${html(run.featureName)}</span></h1>" +
-            "<p class=\"sub\">${Platform.entries.joinToString(" vs ") { p -> "<span class=\"plat ${p.id}\">${p.displayName}</span> <code>${html(subject.paths[p].orEmpty())}</code>" }}" +
+            "<p class=\"sub\">${Platform.entries.joinToString(" vs ") { p ->
+                "<span class=\"plat ${p.id}\">${p.displayName}</span> <code>${html(subject.paths[p].orEmpty())}</code>"
+            }}" +
             " · ${html(formatUtc(run.generatedAt))}</p></header>",
         kpis,
         summaries,

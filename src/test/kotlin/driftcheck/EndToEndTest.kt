@@ -20,8 +20,8 @@ import kotlin.io.path.copyToRecursively
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.io.path.toPath
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -95,7 +95,16 @@ class EndToEndTest {
     private fun twinAppClaude(failIos: Boolean = false) = FakeClaudeClient { request: ClaudeRequest ->
         when (request.cwd) {
             androidRoot -> answer(androidSpec)
-            iosRoot -> if (failIos) throw ClaudeRunException("Claude Code stopped the iOS description early: budget.", Usage(10, 1, 2.0, plan)) else answer(iosSpec)
+
+            iosRoot -> if (failIos) {
+                throw ClaudeRunException(
+                    "Claude Code stopped the iOS description early: budget.",
+                    Usage(10, 1, 2.0, plan),
+                )
+            } else {
+                answer(iosSpec)
+            }
+
             else -> answer(findings)
         }
     }
@@ -170,7 +179,9 @@ class EndToEndTest {
     fun `report checks stored evidence again instead of trusting edited statuses`() {
         assertEquals(0, runWith(twinAppClaude(), "compare", "search").exitCode)
         val specFile = project.resolve(".driftcheck/specs/search/android.json")
-        specFile.writeText(specFile.readText().replace("\"line_out_of_range\"", "\"verified\"").replace("\"verified\": false", "\"verified\": true"))
+        specFile.writeText(
+            specFile.readText().replace("\"line_out_of_range\"", "\"verified\"").replace("\"verified\": false", "\"verified\": true"),
+        )
         assertFalse("line_out_of_range" in specFile.readText() || "\"verified\": false" in specFile.readText())
         val findingsFile = project.resolve(".driftcheck/findings/search.json")
         findingsFile.writeText(findingsFile.readText().replace("claude-sonnet-5-5", "x` <img src=https://evil.example/>"))

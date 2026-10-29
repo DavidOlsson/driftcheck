@@ -5,13 +5,16 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class WindowStatus {
-    @SerialName("allowed") ALLOWED,
+    @SerialName("allowed")
+    ALLOWED,
 
     /** Close to the limit. */
-    @SerialName("allowed_warning") ALLOWED_WARNING,
+    @SerialName("allowed_warning")
+    ALLOWED_WARNING,
 
     /** The limit is used up. */
-    @SerialName("rejected") REJECTED,
+    @SerialName("rejected")
+    REJECTED,
 }
 
 /** One Claude plan window, as Claude Code last reported it. */
@@ -42,12 +45,7 @@ data class PlanUsage(val fiveHour: PlanWindow? = null, val weekly: PlanWindow? =
  * windows instead.
  */
 @Serializable
-data class Usage(
-    val inputTokens: Long = 0,
-    val outputTokens: Long = 0,
-    val costUsd: Double = 0.0,
-    val plan: PlanUsage? = null,
-) {
+data class Usage(val inputTokens: Long = 0, val outputTokens: Long = 0, val costUsd: Double = 0.0, val plan: PlanUsage? = null) {
     operator fun plus(other: Usage) = Usage(
         inputTokens + other.inputTokens,
         outputTokens + other.outputTokens,

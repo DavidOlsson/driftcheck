@@ -1,10 +1,10 @@
 package driftcheck.commands
 
 import driftcheck.UserException
+import driftcheck.compare.sanitizeFindings
 import driftcheck.config.CONFIG_FILE
 import driftcheck.config.CONFIG_PATH
 import driftcheck.config.CONFIG_TEMPLATE
-import driftcheck.compare.sanitizeFindings
 import driftcheck.config.Config
 import driftcheck.evidence.VerificationSummary
 import driftcheck.evidence.summarize
@@ -84,7 +84,11 @@ fun rebuildReport(config: Config, featureId: String): Path {
             "it describes ${stored.platform.id}".takeIf { stored.platform != platform },
             "it describes \"${stored.feature}\"".takeIf { stored.feature != feature.id },
         )
-        if (problems.isNotEmpty()) throw UserException("$file is not a valid description: ${problems.take(5).joinToString("; ")}. $howToRecreate")
+        if (problems.isNotEmpty()) {
+            throw UserException(
+                "$file is not a valid description: ${problems.take(5).joinToString("; ")}. $howToRecreate",
+            )
+        }
         verifySpec(stored, FsSourceReader(config.root(platform)))
     }
     val android = specs.getValue(Platform.ANDROID)

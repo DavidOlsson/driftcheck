@@ -38,8 +38,10 @@ class ConfigTest {
     @Test
     fun `parses features, model and budget`() {
         val config = parseConfig(
-            config(""", "features": [{ "id": "search", "name": "Search", "hints": ["SearchFragment"] }],
-                "model": "claude-opus-5-5", "maxBudgetUsd": 5"""),
+            config(
+                """, "features": [{ "id": "search", "name": "Search", "hints": ["SearchFragment"] }],
+                "model": "claude-opus-5-5", "maxBudgetUsd": 5""",
+            ),
             root,
         )
         assertEquals(FeatureConfig("search", "Search", listOf("SearchFragment")), config.feature("search"))
@@ -57,7 +59,12 @@ class ConfigTest {
         assertContains(assertFailsWith<ConfigException> { parseConfig(config(""", "modle": "x""""), root) }.message!!, "modle")
         assertFailsWith<ConfigException> { parseConfig("{", root) }
         assertFailsWith<ConfigException> { parseConfig("""{"version": 1}""", root) }
-        assertContains(assertFailsWith<ConfigException> { parseConfig(config().replace("\"name\": \"Wikipedia\",", ""), root) }.message!!, "name")
+        assertContains(
+            assertFailsWith<ConfigException> {
+                parseConfig(config().replace("\"name\": \"Wikipedia\",", ""), root)
+            }.message!!,
+            "name",
+        )
         assertContains(assertFailsWith<ConfigException> { parseConfig(config().replace("Wikipedia", " "), root) }.message!!, "app's name")
     }
 
@@ -65,8 +72,10 @@ class ConfigTest {
     fun `lists every invalid value at once`() {
         val error = assertFailsWith<ConfigException> {
             parseConfig(
-                config(""", "version": 2, "model": "--dangerous", "maxBudgetUsd": 500,
-                    "features": [{ "id": "Search", "name": " " }, { "id": "a", "name": "A" }, { "id": "a", "name": "B" }]""")
+                config(
+                    """, "version": 2, "model": "--dangerous", "maxBudgetUsd": 500,
+                    "features": [{ "id": "Search", "name": " " }, { "id": "a", "name": "A" }, { "id": "a", "name": "B" }]""",
+                )
                     .replace("\"version\": 1,", ""),
                 root,
             )

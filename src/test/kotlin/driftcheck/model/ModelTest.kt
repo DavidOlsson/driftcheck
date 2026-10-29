@@ -39,7 +39,10 @@ class ModelTest {
     fun `nullable fields allow null`() {
         val finding = jsonSchemaOf(CompareOutput.serializer()).obj("properties").obj("findings").obj("items")
         val android = finding.obj("properties").obj("android")
-        assertEquals(JsonArray(listOf(JsonObject(mapOf("type" to JsonPrimitive("null"))))), JsonArray(android.getValue("anyOf").jsonArray.drop(1)))
+        assertEquals(
+            JsonArray(listOf(JsonObject(mapOf("type" to JsonPrimitive("null"))))),
+            JsonArray(android.getValue("anyOf").jsonArray.drop(1)),
+        )
         // Nullable but without a default: the model must still say null explicitly
         assertContains(finding.names("required"), "android")
         assertTrue("question" !in finding.names("required"))

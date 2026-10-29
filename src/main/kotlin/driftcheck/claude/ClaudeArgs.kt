@@ -71,6 +71,5 @@ fun claudeArgs(options: ClaudeOptions): List<String> = buildList {
 }
 
 /** The environment for `claude`: everything driftcheck got, except what [REMOVED_ENV_PREFIXES] covers. */
-fun claudeEnv(env: Map<String, String>): Map<String, String> =
-    // Ignoring case because Windows treats environment variable names that way
+fun claudeEnv(env: Map<String, String>): Map<String, String> = // Ignoring case because Windows treats environment variable names that way
     env.filterKeys { name -> REMOVED_ENV_PREFIXES.none { name.startsWith(it, ignoreCase = true) } }

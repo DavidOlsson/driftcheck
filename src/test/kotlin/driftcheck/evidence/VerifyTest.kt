@@ -42,14 +42,29 @@ class VerifyTest {
     @Test
     fun `verifies a description, reading each file once`() {
         val reads = mutableListOf<String>()
-        val reader = SourceReader { path -> reads += path; if (path == "SearchFragment.kt") source else null }
+        val reader = SourceReader { path ->
+            reads += path
+            if (path == "SearchFragment.kt") source else null
+        }
         val spec = FeatureSpec(
             feature = "search",
             platform = Platform.ANDROID,
             summary = "Search",
             items = listOf(
-                SpecItem("input_handling.debounce_ms", Section.INPUT_HANDLING, "Debounce", "300", listOf(Evidence("SearchFragment.kt", 5, "DELAY_MILLIS = 300L"))),
-                SpecItem("api.limit", Section.API, "Limit", "20", listOf(Evidence("SearchFragment.kt", 3, "limit = 20"), Evidence("Missing.kt", 1, "x"))),
+                SpecItem(
+                    "input_handling.debounce_ms",
+                    Section.INPUT_HANDLING,
+                    "Debounce",
+                    "300",
+                    listOf(Evidence("SearchFragment.kt", 5, "DELAY_MILLIS = 300L")),
+                ),
+                SpecItem(
+                    "api.limit",
+                    Section.API,
+                    "Limit",
+                    "20",
+                    listOf(Evidence("SearchFragment.kt", 3, "limit = 20"), Evidence("Missing.kt", 1, "x")),
+                ),
             ),
         )
 
