@@ -78,7 +78,9 @@ jobs:
         with:
           name: driftcheck-results
           path: demo/wikipedia/.driftcheck/
-          if-no-files-found: ignore
+          # .driftcheck is a hidden folder, which upload-artifact skips unless told otherwise
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Prepare the site
