@@ -7,6 +7,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
@@ -55,6 +56,23 @@ class ProcessCommandRunnerTest {
             assertContains(error.message!!, "did not finish within 200ms")
         }
         assertFalse(elapsed > 5.seconds, "the program was not stopped in time: $elapsed")
+    }
+
+    @Test
+    fun `stops the processes a timed-out program started, too`() {
+        // Like claude starting ripgrep for Grep: the shell starts a child and waits for it
+        val pidFile = dir.resolve("child.pid")
+        assertFailsWith<CommandTimeoutException> {
+            runner.run("sh", listOf("-c", "sleep 30 & echo \$! > child.pid; wait"), timeout = 500.milliseconds, cwd = dir, env = env)
+        }
+        val child = ProcessHandle.of(Files.readString(pidFile).trim().toLong())
+        try {
+            // A process that was stopped can take a moment to disappear
+            val gone = (1..20).any { child.map { !it.isAlive }.orElse(true) || run { Thread.sleep(100); false } }
+            assertTrue(gone, "the child process was left running after the timeout")
+        } finally {
+            child.ifPresent { it.destroyForcibly() }
+        }
     }
 
     @Test

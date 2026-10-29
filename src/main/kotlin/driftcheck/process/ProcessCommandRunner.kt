@@ -58,8 +58,14 @@ class ProcessCommandRunner(
         }
 
         if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
+            // destroy() only signals the program itself, so processes it started (such as ripgrep under claude) would
+            // live on. They are collected while the program still runs: once it is gone they get a new parent and
+            // can no longer be found through it.
+            val descendants = process.descendants().toList()
+            descendants.forEach { it.destroy() }
             process.destroy()
             if (!process.waitFor(killGrace.inWholeMilliseconds, TimeUnit.MILLISECONDS)) process.destroyForcibly().waitFor()
+            descendants.filter { it.isAlive }.forEach { it.destroyForcibly() }
             // Best effort: what the program wrote before it was stopped is often the only clue to why it hung
             val partialStderr = runCatching { stderr.await(command) }.getOrDefault("")
             throw CommandTimeoutException(command, timeout, partialStderr)
