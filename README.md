@@ -63,7 +63,7 @@ See [examples/wikipedia-search.html](examples/wikipedia-search.html) (download i
 Each platform is analyzed by `claude -p` with its source root as working directory, and:
 
 - only the `Read`, `Grep` and `Glob` tools, with write, shell, web and agent tools explicitly denied
-- `--restricted` and `--safe-mode`, so the analyzed repository's settings, `CLAUDE.md`, skills and agents are never loaded
+- `--restricted`, so the analyzed repository's settings, `CLAUDE.md`, skills and agents are never loaded, with `--safe-mode` as a second layer
 - `--strict-mcp-config`, `--permission-mode dontAsk` and no session persistence
 - no `ANTHROPIC_*` or `CLAUDE_CODE_USE_*` variables, so a run never bills an API key or cloud account and never sends code to another endpoint
 

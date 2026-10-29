@@ -58,8 +58,9 @@ fun claudeArgs(options: ClaudeOptions): List<String> = buildList {
     addAll(listOf("--max-budget-usd", BigDecimal.valueOf(options.maxBudgetUsd).stripTrailingZeros().toPlainString()))
     // Restricted mode ignores the analyzed repository's settings and confines file tools to the working directory
     add("--restricted")
-    // Restricted mode still loads the repository's CLAUDE.md, skills and agents, which are instructions written by
-    // the analyzed code. Safe mode turns them off but keeps the user's normal login (unlike --bare).
+    // A test against a repository with its own CLAUDE.md, skill and agent (Claude Code 2.1.287) showed that restricted
+    // mode already keeps them out. Safe mode turns them off as well, without dropping the user's login (unlike --bare),
+    // so it stays as a second layer in case restricted mode changes.
     add("--safe-mode")
     add("--strict-mcp-config")
     addAll(listOf("--tools", options.tools.joinToString(",")))
