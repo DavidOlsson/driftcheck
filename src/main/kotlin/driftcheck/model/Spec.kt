@@ -58,6 +58,7 @@ data class SpecItem(
     val description: String,
     /** The concrete value when there is one (a number, a limit, an endpoint), as text. */
     val value: String? = null,
+    @MinItems(1)
     val evidence: List<Evidence>,
 )
 

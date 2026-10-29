@@ -26,6 +26,14 @@ class ModelTest {
     }
 
     @Test
+    fun `requires at least one piece of evidence per item in the schema`() {
+        val item = schema.obj("properties").obj("items").obj("items")
+        assertEquals(JsonPrimitive(1), item.obj("properties").obj("evidence")["minItems"])
+        // Lists without the annotation stay unconstrained
+        assertEquals(null, schema.obj("properties").obj("notFound")["minItems"])
+    }
+
+    @Test
     fun `enums use their serial names and nested classes are inlined`() {
         assertEquals(listOf("android", "ios"), schema.obj("properties").obj("platform").names("enum"))
         val item = schema.obj("properties").obj("items").obj("items")
