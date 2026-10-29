@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class ClaudeOutputTest {
@@ -67,6 +68,37 @@ class ClaudeOutputTest {
         assertContains(noResult.message!!, "exit code 1")
         assertContains(noResult.message!!, "401 Unauthorized")
         assertContains(noResult.message!!, "/login")
+    }
+
+    @Test
+    fun `tells a token login to renew the token instead of logging in`() {
+        // The message seen in CI when CLAUDE_CODE_OAUTH_TOKEN was wrong
+        val error = assertFailsWith<ClaudeRunException> {
+            parseClaudeOutput(
+                result(""""subtype":"success","is_error":true,"result":"Failed to authenticate. API Error: 401 Invalid bearer token""""),
+                "",
+                1,
+                "x",
+                tokenLogin = true,
+            )
+        }
+        assertContains(error.message!!, "claude setup-token")
+        assertFalse("log in (/login)" in error.message!!)
+    }
+
+    @Test
+    fun `adds no login hint to unrelated text`() {
+        for (unrelated in listOf("Read 4013 files", "Open the catalog in Settings", "see blog in docs")) {
+            assertEquals(unrelated, withLoginHint(unrelated, tokenLogin = false))
+        }
+    }
+
+    @Test
+    fun `keeps Claude's own words when it stops early`() {
+        val error = assertFailsWith<ClaudeRunException> {
+            parseClaudeOutput(result(""""subtype":"error_during_execution","errors":["Tool Grep crashed","exit 2"]"""), "", 1, "x")
+        }
+        assertContains(error.message!!, "an error occurred while it was running. Claude Code said: Tool Grep crashed; exit 2")
     }
 
     @Test

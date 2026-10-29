@@ -14,6 +14,9 @@ import kotlin.time.Duration.Companion.minutes
 
 const val CLAUDE_COMMAND = "claude"
 
+/** Set by `claude setup-token` users, typically in CI; claude then logs in with it instead of an interactive login. */
+const val TOKEN_VARIABLE = "CLAUDE_CODE_OAUTH_TOKEN"
+
 /** An agent run reads a lot of code; a healthy one finishes well within this. */
 val AGENT_TIMEOUT = 30.minutes
 
@@ -58,7 +61,7 @@ class CliClaudeClient(
                 cause = e,
             )
         }
-        return parseClaudeOutput(result.stdout, result.stderr, result.exitCode, request.where)
+        return parseClaudeOutput(result.stdout, result.stderr, result.exitCode, request.where, tokenLogin = TOKEN_VARIABLE in env)
     }
 }
 

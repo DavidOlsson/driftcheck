@@ -76,4 +76,13 @@ class ClaudeClientTest {
         val slow = CliClaudeClient(FakeCommandRunner { throw CommandTimeoutException("claude", 5.minutes) }, emptyMap())
         assertContains(assertFailsWith<ClaudeRunException> { slow.runStructured(task, "m", 1.0) }.message!!, "within 5m")
     }
+
+    @Test
+    fun `gives token advice when claude logged in with CLAUDE_CODE_OAUTH_TOKEN`() {
+        val rejected = CommandResult(1, """{"type":"result","subtype":"success","is_error":true,"result":"401 Invalid bearer token"}""", "")
+        val withToken = CliClaudeClient(FakeCommandRunner { rejected }, mapOf(TOKEN_VARIABLE to "token"))
+        assertContains(assertFailsWith<ClaudeRunException> { withToken.runStructured(task, "m", 1.0) }.message!!, "claude setup-token")
+        val interactive = CliClaudeClient(FakeCommandRunner { rejected }, emptyMap())
+        assertContains(assertFailsWith<ClaudeRunException> { interactive.runStructured(task, "m", 1.0) }.message!!, "log in (/login)")
+    }
 }

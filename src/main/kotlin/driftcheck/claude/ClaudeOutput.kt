@@ -7,6 +7,7 @@ import driftcheck.model.Usage
 import driftcheck.model.WindowStatus
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -35,18 +36,35 @@ private val STOP_REASONS = mapOf(
     "error_during_execution" to "an error occurred while it was running",
 )
 
-/** A missing or expired login is the most common first-run failure, so it gets a concrete next step. */
-fun withLoginHint(message: String): String = if (Regex("401|authenticat|log ?in|oauth", RegexOption.IGNORE_CASE).containsMatchIn(message)) {
-    "$message Run \"claude\" in a terminal and log in (/login), then try again."
-} else {
-    message
+/**
+ * Words Claude Code uses for a missing, invalid or expired login. Whole words only: the message can contain stdout and
+ * stderr, where a bare "401" or "log in" also appears in unrelated text.
+ */
+private val LOGIN_PROBLEM = Regex(
+    """\b401\b|\bunauthorized\b|not logged in|failed to authenticate|authentication|invalid (api key|bearer token|auth token)|/login""",
+    RegexOption.IGNORE_CASE,
+)
+
+/**
+ * A missing or expired login is the most common first-run failure, so it gets a concrete next step. With
+ * CLAUDE_CODE_OAUTH_TOKEN set (as in CI), logging in interactively does not help: the token is what failed.
+ */
+fun withLoginHint(message: String, tokenLogin: Boolean): String = when {
+    !LOGIN_PROBLEM.containsMatchIn(message) -> message
+
+    tokenLogin ->
+        "$message CLAUDE_CODE_OAUTH_TOKEN was rejected or has expired: create a new one with \"claude setup-token\" " +
+            "and update the variable (in CI, the secret)."
+
+    else -> "$message Run \"claude\" in a terminal and log in (/login), then try again."
 }
 
 /**
  * Reads the stream-json output of `claude -p`: the final result event and the plan usage events before it.
- * [where] names the run in error messages, e.g. "the Android description".
+ * [where] names the run in error messages, e.g. "the Android description". [tokenLogin] says whether claude logged in
+ * with CLAUDE_CODE_OAUTH_TOKEN, which decides the advice for a login problem.
  */
-fun parseClaudeOutput(stdout: String, stderr: String, exitCode: Int, where: String): ClaudeResult {
+fun parseClaudeOutput(stdout: String, stderr: String, exitCode: Int, where: String, tokenLogin: Boolean = false): ClaudeResult {
     val events = stdout.lineSequence().mapNotNull(::parseLine).toList()
     val result = events.lastOrNull { it.string("type") == "result" }
     if (result == null) {
@@ -54,6 +72,7 @@ fun parseClaudeOutput(stdout: String, stderr: String, exitCode: Int, where: Stri
         throw ClaudeRunException(
             withLoginHint(
                 "Claude Code did not return a result for $where (exit code $exitCode)" + if (detail.isEmpty()) "." else ": $detail",
+                tokenLogin,
             ),
         )
     }
@@ -68,16 +87,29 @@ fun parseClaudeOutput(stdout: String, stderr: String, exitCode: Int, where: Stri
     )
     val subtype = result.string("subtype")
     if (subtype != "success") {
-        throw ClaudeRunException("Claude Code stopped $where early: ${STOP_REASONS[subtype] ?: subtype ?: "no reason given"}.", usage)
+        val reason = STOP_REASONS[subtype] ?: subtype ?: "no reason given"
+        // Claude's own words are often the only clue to what went wrong, e.g. for error_during_execution
+        val details = errorDetails(result)?.let { " Claude Code said: $it" } ?: ""
+        throw ClaudeRunException(withLoginHint("Claude Code stopped $where early: $reason.$details", tokenLogin), usage)
     }
     if (result.boolean("is_error") == true) {
-        throw ClaudeRunException(withLoginHint("Claude Code failed $where: ${result.string("result") ?: "unknown error"}."), usage)
+        throw ClaudeRunException(
+            withLoginHint("Claude Code failed $where: ${result.string("result") ?: "unknown error"}.", tokenLogin),
+            usage,
+        )
     }
     val output = result["structured_output"]
     if (output == null || output is JsonNull) {
         throw ClaudeRunException("Claude Code finished $where without a structured answer.", usage)
     }
     return ClaudeResult(output, usage)
+}
+
+/** The error text a result event carries, in `result` or as an `errors` list, kept short for a message. */
+private fun errorDetails(result: JsonObject): String? {
+    val errors = (result["errors"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+    val text = (listOfNotNull(result.string("result")) + errors).joinToString("; ").trim()
+    return text.takeIf { it.isNotEmpty() }?.take(300)
 }
 
 /** Lines that are not JSON objects, such as stray log output, are skipped. */
