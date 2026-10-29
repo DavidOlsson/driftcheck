@@ -14,7 +14,7 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - **Kotlin/JVM on Java 17:** the owner's everyday language, so every line can be explained and maintained. Java 17 because almost every Android developer already has it.
 - **Gradle** with the `application` plugin: builds a runnable distribution that is released as a zip on GitHub Releases.
 - **Claude Code CLI (`claude -p`)** is the only way driftcheck reaches Claude. It uses the user's own installed and logged-in Claude Code, so driftcheck needs no API key and no SDK, and never handles logins.
-- **kotlinx.serialization** (added when first needed): reads the config, which is JSON so no extra parser is needed, and validates all model output against the expected structure.
+- **kotlinx.serialization:** reads the config, which is JSON so no extra parser is needed, and validates all model output against the expected structure.
 - **JUnit 5:** unit tests.
 
 ## Architecture principles
@@ -54,7 +54,9 @@ One Gradle module, package `driftcheck`:
 ```
 Main.kt     entry point: argument handling, exit codes
 process/    CommandRunner: runs external programs (claude) without a shell, always with a timeout
-claude/     the arguments and environment for claude -p, built in one place (claudeArgs, claudeEnv)
+claude/     claude -p: arguments and environment (claudeArgs, claudeEnv), stream-json parsing, ClaudeClient
+config/     .driftcheck/config.json: loading and validation
+model/      feature descriptions, findings, usage; the JSON schema for model output comes from the same classes
 source/     SourceReader: reads source files, never outside a platform's root
 ```
-Packages for config, evidence verification, comparison and reports are added when a task needs them.
+Packages for evidence verification, comparison and reports are added when a task needs them.
