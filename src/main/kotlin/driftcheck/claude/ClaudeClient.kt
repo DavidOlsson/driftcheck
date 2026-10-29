@@ -18,9 +18,6 @@ const val CLAUDE_COMMAND = "claude"
 /** Set by `claude setup-token` users, typically in CI; claude then logs in with it instead of an interactive login. */
 const val TOKEN_VARIABLE = "CLAUDE_CODE_OAUTH_TOKEN"
 
-/** An agent run reads a lot of code; a healthy one finishes well within this. */
-val AGENT_TIMEOUT = 30.minutes
-
 /** A single run without tools. */
 val TOOLLESS_TIMEOUT = 10.minutes
 
@@ -63,9 +60,15 @@ class CliClaudeClient(
                 cause = e,
             )
         } catch (e: CommandTimeoutException) {
+            // What claude wrote before it was stopped is often the only clue to why it hung
+            val stderr = e.stderr.trim().takeLast(500).let { if (it.isEmpty()) "" else " Its last error output: $it" }
+            val advice = if (request.options.tools.isEmpty()) {
+                "Try again."
+            } else {
+                "Try again, add hints for the feature so the agent finds it faster, or raise timeoutMinutes in .driftcheck/config.json."
+            }
             throw ClaudeRunException(
-                "Claude Code did not finish ${request.where} within ${request.timeout} and was stopped. " +
-                    "Try again, or add hints for the feature so the agent finds it faster.",
+                "Claude Code did not finish ${request.where} within ${request.timeout} and was stopped.$stderr $advice",
                 cause = e,
             )
         }

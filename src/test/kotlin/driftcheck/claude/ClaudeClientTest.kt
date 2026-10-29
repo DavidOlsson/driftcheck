@@ -73,8 +73,13 @@ class ClaudeClientTest {
         val missing = CliClaudeClient(FakeCommandRunner { throw CommandNotFoundException("claude") }, emptyMap())
         assertContains(assertFailsWith<ClaudeRunException> { missing.runStructured(task, "m", 1.0) }.message!!, "Install it")
 
-        val slow = CliClaudeClient(FakeCommandRunner { throw CommandTimeoutException("claude", 5.minutes) }, emptyMap())
-        assertContains(assertFailsWith<ClaudeRunException> { slow.runStructured(task, "m", 1.0) }.message!!, "within 5m")
+        val slow =
+            CliClaudeClient(FakeCommandRunner { throw CommandTimeoutException("claude", 5.minutes, "rate limited, waiting…") }, emptyMap())
+        val message = assertFailsWith<ClaudeRunException> { slow.runStructured(task, "m", 1.0) }.message!!
+        assertContains(message, "within 5m")
+        assertContains(message, "Its last error output: rate limited, waiting…")
+        // A run without tools is not configurable, so its message does not point at timeoutMinutes
+        assertFalse("timeoutMinutes" in message)
     }
 
     @Test

@@ -1,6 +1,5 @@
 package driftcheck.extract
 
-import driftcheck.claude.AGENT_TIMEOUT
 import driftcheck.claude.ClaudeClient
 import driftcheck.claude.ClaudeRunException
 import driftcheck.claude.READ_ONLY_TOOLS
@@ -22,7 +21,7 @@ fun extractFeature(client: ClaudeClient, config: Config, feature: FeatureConfig,
         prompt = extractPrompt(platform, feature),
         tools = READ_ONLY_TOOLS,
         cwd = config.root(platform),
-        timeout = AGENT_TIMEOUT,
+        timeout = config.agentTimeout,
         where = "the ${platform.displayName} description",
         problems = { it.problems() },
     )
