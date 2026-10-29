@@ -6,6 +6,7 @@ import driftcheck.model.FeatureSpec
 import driftcheck.model.Platform
 import driftcheck.model.Section
 import driftcheck.model.SpecItem
+import driftcheck.source.SourceFile
 import driftcheck.source.SourceReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,20 +24,24 @@ class VerifyTest {
 
     @Test
     fun `verifies a quote on the cited line, near it, or with different whitespace`() {
-        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(source, Evidence("a.kt", 5, "DELAY_MILLIS = 300L")))
-        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(source, Evidence("a.kt", 2, "DELAY_MILLIS = 300L")))
-        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(source, Evidence("a.kt", 5, "const val DELAY_MILLIS=300L")))
+        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, "DELAY_MILLIS = 300L")))
+        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 2, "DELAY_MILLIS = 300L")))
+        assertEquals(EvidenceStatus.VERIFIED, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, "const val DELAY_MILLIS=300L")))
     }
 
     @Test
     fun `reports what could not be confirmed`() {
-        assertEquals(EvidenceStatus.FILE_NOT_FOUND, checkEvidence(null, Evidence("a.kt", 1, "x")))
-        assertEquals(EvidenceStatus.LINE_OUT_OF_RANGE, checkEvidence(source, Evidence("a.kt", 99, "x")))
-        assertEquals(EvidenceStatus.LINE_OUT_OF_RANGE, checkEvidence(source, Evidence("a.kt", 0, "x")))
-        assertEquals(EvidenceStatus.QUOTE_NOT_FOUND, checkEvidence(source, Evidence("a.kt", 5, "DELAY_MILLIS = 500L")))
+        assertEquals(EvidenceStatus.FILE_NOT_FOUND, checkEvidence(SourceFile.Missing, Evidence("a.kt", 1, "x")))
+        assertEquals(EvidenceStatus.LINE_OUT_OF_RANGE, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 99, "x")))
+        assertEquals(EvidenceStatus.LINE_OUT_OF_RANGE, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 0, "x")))
+        assertEquals(EvidenceStatus.QUOTE_NOT_FOUND, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, "DELAY_MILLIS = 500L")))
         // Too far from the cited line
-        assertEquals(EvidenceStatus.QUOTE_NOT_FOUND, checkEvidence(source, Evidence("a.kt", 1, "DELAY_MILLIS = 300L")))
-        assertEquals(EvidenceStatus.LINE_EXISTS, checkEvidence(source, Evidence("a.kt", 5, " ")))
+        assertEquals(EvidenceStatus.QUOTE_NOT_FOUND, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 1, "DELAY_MILLIS = 300L")))
+        assertEquals(EvidenceStatus.LINE_EXISTS, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, " ")))
+        assertEquals(EvidenceStatus.FILE_TOO_LARGE, checkEvidence(SourceFile.TooLarge, Evidence("a.kt", 1, "x")))
+        // Found, but too short to tell the cited line from its neighbours
+        assertEquals(EvidenceStatus.QUOTE_TOO_SHORT, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, " } ")))
+        assertEquals(EvidenceStatus.QUOTE_TOO_SHORT, checkEvidence(SourceFile.Text(source), Evidence("a.kt", 5, "val")))
     }
 
     @Test
@@ -44,7 +49,7 @@ class VerifyTest {
         val reads = mutableListOf<String>()
         val reader = SourceReader { path ->
             reads += path
-            if (path == "SearchFragment.kt") source else null
+            if (path == "SearchFragment.kt") SourceFile.Text(source) else SourceFile.Missing
         }
         val spec = FeatureSpec(
             feature = "search",

@@ -10,6 +10,10 @@ enum class EvidenceStatus {
     @SerialName("verified")
     VERIFIED,
 
+    /** The quote was found, but it is too short to tell this line from any other, such as "}" or "val". */
+    @SerialName("quote_too_short")
+    QUOTE_TOO_SHORT,
+
     /** The file and line exist, but there was no quote to check. */
     @SerialName("line_exists")
     LINE_EXISTS,
@@ -23,6 +27,10 @@ enum class EvidenceStatus {
     /** Missing, or outside the platform root. */
     @SerialName("file_not_found")
     FILE_NOT_FOUND,
+
+    /** Larger than driftcheck reads; a cited file this big is not source code worth checking. */
+    @SerialName("file_too_large")
+    FILE_TOO_LARGE,
     ;
 
     val id: String get() = name.lowercase()
