@@ -8,6 +8,7 @@ import driftcheck.process.CommandRunner
 import driftcheck.process.CommandTimeoutException
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -52,6 +53,13 @@ class CliClaudeClient(
             throw ClaudeRunException(
                 "Claude Code (\"$CLAUDE_COMMAND\") was not found on PATH. Install it from https://claude.com/claude-code, " +
                     "log in, and try again.",
+                cause = e,
+            )
+        } catch (e: IOException) {
+            // E.g. claude is not executable, the working directory is missing, or a process it left behind kept its output open
+            throw ClaudeRunException(
+                "Could not run Claude Code for ${request.where}: ${e.message}. Check that \"$CLAUDE_COMMAND\" is installed and " +
+                    "can be run, and that the source root exists.",
                 cause = e,
             )
         } catch (e: CommandTimeoutException) {

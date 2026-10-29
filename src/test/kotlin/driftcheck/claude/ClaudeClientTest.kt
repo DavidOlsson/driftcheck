@@ -78,6 +78,20 @@ class ClaudeClientTest {
     }
 
     @Test
+    fun `turns a problem starting claude into a clear error`() {
+        val broken =
+            CliClaudeClient(
+                FakeCommandRunner {
+                    throw java.io.IOException("Cannot run program \"claude\": error=13, Permission denied")
+                },
+                emptyMap(),
+            )
+        val message = assertFailsWith<ClaudeRunException> { broken.runStructured(task, "m", 1.0) }.message!!
+        assertContains(message, "Could not run Claude Code for")
+        assertContains(message, "Permission denied")
+    }
+
+    @Test
     fun `gives token advice when claude logged in with CLAUDE_CODE_OAUTH_TOKEN`() {
         val rejected = CommandResult(1, """{"type":"result","subtype":"success","is_error":true,"result":"401 Invalid bearer token"}""", "")
         val withToken = CliClaudeClient(FakeCommandRunner { rejected }, mapOf(TOKEN_VARIABLE to "token"))
