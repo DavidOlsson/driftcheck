@@ -116,7 +116,7 @@ class ProcessCommandRunnerTest {
     @Test
     fun `reports a missing working directory as such, not as a missing program`() {
         val error =
-            assertFailsWith<IllegalArgumentException> {
+            assertFailsWith<java.nio.file.NoSuchFileException> {
                 runner.run("cat", emptyList(), timeout = 10.seconds, cwd = dir.resolve("missing"), env = env)
             }
         assertContains(error.message!!, "working directory")

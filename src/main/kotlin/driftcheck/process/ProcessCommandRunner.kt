@@ -3,6 +3,7 @@ package driftcheck.process
 import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.FutureTask
@@ -34,7 +35,12 @@ class ProcessCommandRunner(
         input: String?,
     ): CommandResult {
         // Checked up front: the JDK reports a missing directory with the same error as a missing program
-        require(Files.isDirectory(cwd)) { "The working directory $cwd does not exist or is not a directory" }
+        if (!Files.isDirectory(
+                cwd,
+            )
+        ) {
+            throw NoSuchFileException(cwd.toString(), null, "the working directory does not exist or is not a directory")
+        }
         val builder = ProcessBuilder(listOf(command) + args).directory(cwd.toFile())
         builder.environment().apply {
             clear()

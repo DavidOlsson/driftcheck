@@ -8,14 +8,15 @@ import driftcheck.process.CommandRunner
 import driftcheck.process.CommandTimeoutException
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
 const val CLAUDE_COMMAND = "claude"
 
-/** An agent run reads a lot of code; a healthy one finishes well within this. */
-val AGENT_TIMEOUT = 30.minutes
+/** Set by `claude setup-token` users, typically in CI; claude then logs in with it instead of an interactive login. */
+const val TOKEN_VARIABLE = "CLAUDE_CODE_OAUTH_TOKEN"
 
 /** A single run without tools. */
 val TOOLLESS_TIMEOUT = 10.minutes
@@ -51,14 +52,27 @@ class CliClaudeClient(
                     "log in, and try again.",
                 cause = e,
             )
-        } catch (e: CommandTimeoutException) {
+        } catch (e: IOException) {
+            // E.g. claude is not executable, the working directory is missing, or a process it left behind kept its output open
             throw ClaudeRunException(
-                "Claude Code did not finish ${request.where} within ${request.timeout} and was stopped. " +
-                    "Try again, or add hints for the feature so the agent finds it faster.",
+                "Could not run Claude Code for ${request.where}: ${e.message}. Check that \"$CLAUDE_COMMAND\" is installed and " +
+                    "can be run, and that the source root exists.",
+                cause = e,
+            )
+        } catch (e: CommandTimeoutException) {
+            // What claude wrote before it was stopped is often the only clue to why it hung
+            val stderr = e.stderr.trim().takeLast(500).let { if (it.isEmpty()) "" else " Its last error output: $it" }
+            val advice = if (request.options.tools.isEmpty()) {
+                "Try again."
+            } else {
+                "Try again, add hints for the feature so the agent finds it faster, or raise timeoutMinutes in .driftcheck/config.json."
+            }
+            throw ClaudeRunException(
+                "Claude Code did not finish ${request.where} within ${request.timeout} and was stopped.$stderr $advice",
                 cause = e,
             )
         }
-        return parseClaudeOutput(result.stdout, result.stderr, result.exitCode, request.where)
+        return parseClaudeOutput(result.stdout, result.stderr, result.exitCode, request.where, tokenLogin = TOKEN_VARIABLE in env)
     }
 }
 

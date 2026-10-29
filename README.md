@@ -81,7 +81,7 @@ Findings may only cite evidence from the two descriptions, and each reference ke
 
 ## Usage and limits
 
-Runs count toward your Claude plan. Each run is capped by `maxBudgetUsd` (default 2, at most 20), and the report and terminal show how much of your **5-hour window** and **weekly limit** is used, when Claude Code reports it.
+Runs count toward your Claude plan. Each run is capped by `maxBudgetUsd` (default 2, at most 20), each platform's description is stopped after `timeoutMinutes` (default 30, at most 120), and the report and terminal show how much of your **5-hour window** and **weekly limit** is used, when Claude Code reports it.
 
 ## Development
 

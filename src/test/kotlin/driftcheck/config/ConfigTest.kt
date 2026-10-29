@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.minutes
 
 class ConfigTest {
     private val root = Path.of("/work/project")
@@ -32,6 +33,7 @@ class ConfigTest {
         assertEquals(Path.of("/work/project/apps/ios"), config.root(Platform.IOS))
         assertEquals(DEFAULT_MODEL, config.model)
         assertEquals(DEFAULT_MAX_BUDGET_USD, config.maxBudgetUsd)
+        assertEquals(DEFAULT_TIMEOUT_MINUTES.minutes, config.agentTimeout)
         assertEquals(emptyList(), config.features)
     }
 
@@ -40,13 +42,14 @@ class ConfigTest {
         val config = parseConfig(
             config(
                 """, "features": [{ "id": "search", "name": "Search", "hints": ["SearchFragment"] }],
-                "model": "claude-opus-5-5", "maxBudgetUsd": 5""",
+                "model": "claude-opus-5-5", "maxBudgetUsd": 5, "timeoutMinutes": 60""",
             ),
             root,
         )
         assertEquals(FeatureConfig("search", "Search", listOf("SearchFragment")), config.feature("search"))
         assertEquals("claude-opus-5-5", config.model)
         assertEquals(5.0, config.maxBudgetUsd)
+        assertEquals(60.minutes, config.agentTimeout)
     }
 
     @Test
@@ -73,7 +76,7 @@ class ConfigTest {
         val error = assertFailsWith<ConfigException> {
             parseConfig(
                 config(
-                    """, "version": 2, "model": "--dangerous", "maxBudgetUsd": 500,
+                    """, "version": 2, "model": "--dangerous", "maxBudgetUsd": 500, "timeoutMinutes": 0,
                     "features": [{ "id": "Search", "name": " " }, { "id": "a", "name": "A" }, { "id": "a", "name": "B" }]""",
                 )
                     .replace("\"version\": 1,", ""),
@@ -84,6 +87,7 @@ class ConfigTest {
         assertContains(message, "version must be 1")
         assertContains(message, "model \"--dangerous\"")
         assertContains(message, "maxBudgetUsd")
+        assertContains(message, "timeoutMinutes must be from 1 to $MAX_TIMEOUT_MINUTES, got 0")
         assertContains(message, "feature id \"Search\"")
         assertContains(message, "needs a name")
         assertContains(message, "duplicate feature ids: a")

@@ -11,6 +11,8 @@ import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 const val CONFIG_DIR = ".driftcheck"
 const val CONFIG_FILE = "config.json"
@@ -23,6 +25,12 @@ const val DEFAULT_MAX_BUDGET_USD = 2.0
  * make a run arbitrarily expensive.
  */
 const val MAX_BUDGET_USD_LIMIT = 20.0
+
+/** An agent run reads a lot of code; a healthy one finishes well within this. */
+const val DEFAULT_TIMEOUT_MINUTES = 30
+
+/** Long enough for very large apps, short enough that a hanging run cannot block CI for hours. */
+const val MAX_TIMEOUT_MINUTES = 120
 
 class ConfigException(message: String, cause: Throwable? = null) : UserException(message, cause)
 
@@ -52,6 +60,8 @@ private data class RawConfig(
     val model: String = DEFAULT_MODEL,
     /** USD per Claude run. */
     val maxBudgetUsd: Double = DEFAULT_MAX_BUDGET_USD,
+    /** How long one platform's description may take before it is stopped. */
+    val timeoutMinutes: Int = DEFAULT_TIMEOUT_MINUTES,
 )
 
 data class Config(
@@ -64,6 +74,8 @@ data class Config(
     val features: List<FeatureConfig>,
     val model: String,
     val maxBudgetUsd: Double,
+    /** The time limit for each platform's description run. */
+    val agentTimeout: Duration = DEFAULT_TIMEOUT_MINUTES.minutes,
 ) {
     fun root(platform: Platform): Path = platforms.getValue(platform)
 
@@ -104,6 +116,9 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
         if (!raw.maxBudgetUsd.isFinite() || raw.maxBudgetUsd <= 0 || raw.maxBudgetUsd > MAX_BUDGET_USD_LIMIT) {
             add("maxBudgetUsd must be above 0 and at most $MAX_BUDGET_USD_LIMIT USD per run, got ${raw.maxBudgetUsd}")
         }
+        if (raw.timeoutMinutes !in 1..MAX_TIMEOUT_MINUTES) {
+            add("timeoutMinutes must be from 1 to $MAX_TIMEOUT_MINUTES, got ${raw.timeoutMinutes}")
+        }
         for (feature in raw.features) {
             if (!FEATURE_ID.matches(feature.id)) add("feature id \"${feature.id}\" must be lowercase letters, digits and dashes")
             if (feature.name.isBlank()) add("feature \"${feature.id}\" needs a name")
@@ -118,7 +133,7 @@ fun parseConfig(text: String, projectRoot: Path, allowExternalPaths: Boolean = f
         Platform.ANDROID to platformRoot(root, raw.platforms.android.path, Platform.ANDROID, allowExternalPaths),
         Platform.IOS to platformRoot(root, raw.platforms.ios.path, Platform.IOS, allowExternalPaths),
     )
-    return Config(raw.name.trim(), root, platforms, raw.features, raw.model, raw.maxBudgetUsd)
+    return Config(raw.name.trim(), root, platforms, raw.features, raw.model, raw.maxBudgetUsd, raw.timeoutMinutes.minutes)
 }
 
 private fun platformRoot(projectRoot: Path, path: String, platform: Platform, allowExternal: Boolean): Path {

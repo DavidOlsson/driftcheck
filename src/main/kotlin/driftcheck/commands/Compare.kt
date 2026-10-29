@@ -15,6 +15,7 @@ import driftcheck.model.VerifiedFinding
 import driftcheck.report.renderCompareReport
 import driftcheck.source.FsSourceReader
 import driftcheck.store.Store
+import java.io.IOException
 import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.Path
@@ -52,13 +53,23 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
     val describedUsage = described.values.fold(Usage.NONE) { sum, d -> sum + d.usage }
 
     // An empty directory: the comparison has no tools, and nothing project-specific should be within reach
-    val workDir = Files.createTempDirectory("driftcheck-compare")
+    val workDir = try {
+        Files.createTempDirectory("driftcheck-compare")
+    } catch (e: IOException) {
+        throw ClaudeRunException(
+            "Could not create a temporary directory for the comparison: ${e.message}. Check that the system temp directory " +
+                "(java.io.tmpdir) exists and is writable.",
+            describedUsage,
+            e,
+        )
+    }
     val compared = try {
         compareSpecs(deps.claude, config, android, ios, workDir)
     } catch (e: ClaudeRunException) {
         throw ClaudeRunException(e.message!!, describedUsage + e.usage, e)
     } finally {
-        Files.deleteIfExists(workDir)
+        // Best effort: a leftover temp file must never replace the real error or the result
+        runCatching { workDir.toFile().deleteRecursively() }
     }
     val usage = describedUsage + compared.usage
 

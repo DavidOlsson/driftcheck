@@ -158,6 +158,17 @@ class EndToEndTest {
     }
 
     @Test
+    fun `a file left in the comparison's temp directory does not fail the run`() {
+        val messy = FakeClaudeClient { request ->
+            if (request.options.tools.isEmpty()) request.cwd.resolve("left-behind.txt").toFile().writeText("x")
+            twinAppClaude().run(request)
+        }
+        val result = runWith(messy, "compare", "search")
+        assertEquals(0, result.exitCode, result.err)
+        assertFalse(messy.requests.single { it.options.tools.isEmpty() }.cwd.exists(), "the temp directory is removed with its contents")
+    }
+
+    @Test
     fun `verify and report work from the stored results without Claude`() {
         assertEquals(0, runWith(twinAppClaude(), "compare", "search").exitCode)
         val reportFile = project.resolve(".driftcheck/reports/search.html")
