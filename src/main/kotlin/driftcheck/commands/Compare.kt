@@ -37,8 +37,11 @@ private class Described(val spec: VerifiedFeatureSpec, val usage: Usage)
  */
 fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
     val feature = config.feature(featureId)
+    // One description per platform, then the comparison
+    val runs = Platform.entries.size + 1
     deps.log(
-        "Comparing \"${feature.name}\" with ${config.model} via Claude Code (at most ${budget(config.maxBudgetUsd)} USD per run, 3 runs)…",
+        "Comparing \"${feature.name}\" with ${config.model} via Claude Code: $runs runs of at most ${budget(config.maxBudgetUsd)} USD " +
+            "each, so at most ${budget(config.maxBudgetUsd * runs)} USD in total…",
     )
 
     val described = describeBoth { platform ->

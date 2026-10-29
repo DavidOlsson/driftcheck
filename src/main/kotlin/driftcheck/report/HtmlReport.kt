@@ -1,5 +1,6 @@
 package driftcheck.report
 
+import driftcheck.evidence.QUOTE_WINDOW
 import driftcheck.evidence.summarize
 import driftcheck.model.CompareRun
 import driftcheck.model.CoverageStatus
@@ -111,7 +112,7 @@ private fun checkedLines(run: CompareRun, android: VerifiedFeatureSpec, ios: Ver
         val verified = refs.count { it.status == EvidenceStatus.VERIFIED }
         val marked = if (verified < refs.size) "; ⚠ marks the ones that could not be confirmed" else ""
         add(
-            "<li><b>Findings:</b> $verified of ${refs.size} source references verified$marked. A ✓ means the quoted line was found near the cited line.</li>",
+            "<li><b>Findings:</b> $verified of ${refs.size} source references verified$marked. A ✓ means the quote was found within $QUOTE_WINDOW lines of the cited line.</li>",
         )
     }
     for (spec in listOf(android, ios)) {

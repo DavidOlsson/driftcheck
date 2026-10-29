@@ -125,6 +125,7 @@ class EndToEndTest {
         val result = runWith(claude, "compare", "search")
 
         assertEquals(0, result.exitCode, result.err)
+        assertContains(result.out, "3 runs of at most 2 USD each, so at most 6 USD in total")
         assertContains(result.out, "Android: 4 items, 3 verified against the source")
         assertContains(result.out, "iOS: 3 items, 3 verified against the source")
         assertContains(result.out, "Findings: 2 behavior, 1 bug, 1 equal")
