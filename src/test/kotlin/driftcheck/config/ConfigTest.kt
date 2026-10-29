@@ -102,6 +102,29 @@ class ConfigTest {
     }
 
     @Test
+    fun `refuses platform roots that contain the results or overlap`() {
+        for (path in listOf("", ".", "./")) {
+            val atRoot = config().replace("\"android\" }", "\"$path\" }")
+            assertContains(assertFailsWith<ConfigException> { parseConfig(atRoot, root) }.message!!, "platforms.android.path must point at")
+        }
+        val nested = config().replace("\"apps/ios\" }", "\"android/ios\" }")
+        assertContains(assertFailsWith<ConfigException> { parseConfig(nested, root) }.message!!, "must be separate folders")
+    }
+
+    @Test
+    fun `refuses empty, long or too many hints`() {
+        val hints = listOf(
+            """[" "]""" to "has an empty hint",
+            "[\"${"x".repeat(MAX_HINT_LENGTH + 1)}\"]" to "longer than $MAX_HINT_LENGTH",
+            (1..MAX_HINTS + 1).joinToString(",", "[", "]") { "\"H$it\"" } to "at most $MAX_HINTS",
+        )
+        for ((list, problem) in hints) {
+            val body = """, "features": [{ "id": "search", "name": "Search", "hints": $list }]"""
+            assertContains(assertFailsWith<ConfigException> { parseConfig(config(body), root) }.message!!, problem)
+        }
+    }
+
+    @Test
     fun `names the configured features when one is unknown`() {
         val config = parseConfig(config(""", "features": [{ "id": "search", "name": "Search" }]"""), root)
         assertContains(assertFailsWith<ConfigException> { config.feature("login") }.message!!, "Configured features: search")
