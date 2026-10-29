@@ -58,5 +58,9 @@ claude/     claude -p: arguments and environment (claudeArgs, claudeEnv), stream
 config/     .driftcheck/config.json: loading and validation
 model/      feature descriptions, findings, usage; the JSON schema for model output comes from the same classes
 source/     SourceReader: reads source files, never outside a platform's root
+evidence/   checks each piece of evidence (file, line, quote) against the source
+extract/    prompts and one read-only claude run per platform that describes a feature
+compare/    one claude run without tools that compares the two verified descriptions
+store/      writes results only inside .driftcheck/, never through symlinks
 ```
-Packages for evidence verification, comparison and reports are added when a task needs them.
+Packages for commands and reports are added when a task needs them.

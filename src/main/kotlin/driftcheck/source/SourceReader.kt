@@ -7,7 +7,7 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
 /** Read access to one platform's source tree. Behind an interface so evidence checks can be tested in memory. */
-interface SourceReader {
+fun interface SourceReader {
     /** The file's text, or null when it does not exist, is not a file, or lies outside the root. */
     fun read(relativePath: String): String?
 }
