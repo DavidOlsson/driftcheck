@@ -37,7 +37,16 @@ fun verifySpec(spec: FeatureSpec, reader: SourceReader): VerifiedFeatureSpec {
         val evidence = item.evidence.map { e ->
             VerifiedEvidence(e.file, e.line, e.quote, checkEvidence(files.getOrPut(e.file) { reader.read(e.file) }, e))
         }
-        VerifiedSpecItem(item.key, item.section, item.description, item.value, evidence, evidence.any { it.status == EvidenceStatus.VERIFIED })
+        VerifiedSpecItem(
+            item.key,
+            item.section,
+            item.description,
+            item.value,
+            evidence,
+            evidence.any {
+                it.status == EvidenceStatus.VERIFIED
+            },
+        )
     }
     return VerifiedFeatureSpec(spec.feature, spec.platform, spec.summary, items, spec.notFound, spec.coverage)
 }

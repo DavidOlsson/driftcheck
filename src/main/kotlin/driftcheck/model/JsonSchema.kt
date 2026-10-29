@@ -23,28 +23,40 @@ fun jsonSchemaOf(serializer: KSerializer<*>): JsonObject = schemaOf(serializer.d
 private fun schemaOf(descriptor: SerialDescriptor): JsonObject {
     val schema = when (val kind = descriptor.kind) {
         PrimitiveKind.STRING, PrimitiveKind.CHAR -> type("string")
+
         PrimitiveKind.INT, PrimitiveKind.LONG, PrimitiveKind.SHORT, PrimitiveKind.BYTE -> type("integer")
+
         PrimitiveKind.DOUBLE, PrimitiveKind.FLOAT -> type("number")
+
         PrimitiveKind.BOOLEAN -> type("boolean")
+
         SerialKind.ENUM -> buildJsonObject {
             put("type", "string")
             put("enum", JsonArray((0 until descriptor.elementsCount).map { JsonPrimitive(descriptor.getElementName(it)) }))
         }
+
         StructureKind.LIST -> buildJsonObject {
             put("type", "array")
             put("items", schemaOf(descriptor.getElementDescriptor(0)))
         }
+
         StructureKind.CLASS, StructureKind.OBJECT -> buildJsonObject {
             put("type", "object")
             put(
                 "properties",
-                JsonObject((0 until descriptor.elementsCount).associate { descriptor.getElementName(it) to schemaOf(descriptor.getElementDescriptor(it)) }),
+                JsonObject(
+                    (0 until descriptor.elementsCount).associate {
+                        descriptor.getElementName(it) to
+                            schemaOf(descriptor.getElementDescriptor(it))
+                    },
+                ),
             )
             val required = (0 until descriptor.elementsCount).filterNot { descriptor.isElementOptional(it) }
             put("required", JsonArray(required.map { JsonPrimitive(descriptor.getElementName(it)) }))
             // Structured output requires closed objects
             put("additionalProperties", false)
         }
+
         is PolymorphicKind, StructureKind.MAP, SerialKind.CONTEXTUAL ->
             error("${descriptor.serialName} uses $kind, which the model schema does not support")
     }

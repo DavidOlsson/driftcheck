@@ -37,15 +37,28 @@ class CompareTest {
     )
     private val ios = spec(Platform.IOS, VerifiedEvidence("Search.swift", 5, "limit: 50", EvidenceStatus.VERIFIED))
 
-    private fun finding(category: FindingCategory, severity: Severity, android: List<Evidence>, ios: List<Evidence>?) =
-        Finding(category, severity, "$category $severity", listOf("api.limit"), PlatformSide("a", android), ios?.let { PlatformSide("i", it) })
+    private fun finding(category: FindingCategory, severity: Severity, android: List<Evidence>, ios: List<Evidence>?) = Finding(
+        category,
+        severity,
+        "$category $severity",
+        listOf("api.limit"),
+        PlatformSide("a", android),
+        ios?.let {
+            PlatformSide("i", it)
+        },
+    )
 
     @Test
     fun `keeps only evidence from the descriptions, with its checked status, and sorts into report order`() {
         val findings = listOf(
             finding(FindingCategory.EQUAL, Severity.INFO, listOf(Evidence("Search.kt", 10)), listOf(Evidence("Search.swift", 5))),
             finding(FindingCategory.BEHAVIOR, Severity.LOW, listOf(Evidence("Search.kt", 20, "made up")), null),
-            finding(FindingCategory.BEHAVIOR, Severity.HIGH, listOf(Evidence("Search.kt", 10), Evidence("Invented.kt", 1)), listOf(Evidence("Search.swift", 6))),
+            finding(
+                FindingCategory.BEHAVIOR,
+                Severity.HIGH,
+                listOf(Evidence("Search.kt", 10), Evidence("Invented.kt", 1)),
+                listOf(Evidence("Search.swift", 6)),
+            ),
         )
 
         val sanitized = sanitizeFindings(findings, "search", android, ios)

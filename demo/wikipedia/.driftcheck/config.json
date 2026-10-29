@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "Wikipedia",
+  "platforms": {
+    "android": { "path": "android" },
+    "ios": { "path": "ios" }
+  },
+  "features": [
+    {
+      "id": "search",
+      "name": "Article search",
+      "hints": ["SearchFragment", "SearchResultsViewModel", "SearchViewController", "WMFSearchFetcher"]
+    }
+  ],
+  "maxBudgetUsd": 2.0
+}

@@ -5,8 +5,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class Platform(val displayName: String) {
-    @SerialName("android") ANDROID("Android"),
-    @SerialName("ios") IOS("iOS"),
+    @SerialName("android")
+    ANDROID("Android"),
+
+    @SerialName("ios")
+    IOS("iOS"),
     ;
 
     /** The name used in config files, model output and file names. */

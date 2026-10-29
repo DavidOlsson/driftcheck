@@ -7,7 +7,10 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 
 ## Scope
 - `compare <feature>`: the core. `overview` (a feature matrix of both apps) is optional and comes later, if at all.
-- Out of scope: pull request checks, recorded intentional differences, CI and API keys.
+- Out of scope: pull request checks of analyzed apps, recorded intentional differences and API keys.
+- CI (GitHub Actions) for driftcheck itself:
+  - `ci.yml`: every pull request and push to main runs `./gradlew build` (compile, tests, ktlint). After a push to main, a version in `build.gradle.kts` without a release yet is published as GitHub release `v<version>` with the distribution zip.
+  - `report.yml`: started by hand only. Runs `driftcheck compare search` on the Wikipedia apps with the owner's subscription (secret `CLAUDE_CODE_OAUTH_TOKEN`) and publishes the report on GitHub Pages.
 - Build only what the current task asks for. Do not add commands, options or modules ahead of time.
 
 ## Stack and why
@@ -32,6 +35,8 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - Build and test: `./gradlew build`
 - Tests only: `./gradlew test`
 - Runnable copy: `./gradlew installDist`, then `build/install/driftcheck/bin/driftcheck`
+- Code style: `./gradlew ktlintCheck` (part of `build`); fix with `./gradlew ktlintFormat`
+- Release: raise `version` in `build.gradle.kts`; CI publishes it after the merge to main
 
 ## Language
 English everywhere: code, comments, CLI output, reports, documentation and everything in git (branch names, commits, pull request titles and bodies).
@@ -40,6 +45,7 @@ English everywhere: code, comments, CLI output, reports, documentation and every
 - Do not build anything the current task has not asked for.
 - Do not add, remove or swap dependencies without asking.
 - Do not run anything that calls Claude for real without asking. It uses the owner's subscription.
+- Never call Claude in CI except in the hand-started report workflow, and never expose `CLAUDE_CODE_OAUTH_TOKEN` to pull request workflows or to any step but the one that runs driftcheck.
 - Never give the agent tools that can write files, run commands or access the network.
 - Never send source code anywhere except through the user's own Claude Code.
 - Never add API key handling or a login of driftcheck's own.

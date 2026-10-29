@@ -2,9 +2,9 @@ package driftcheck.source
 
 import driftcheck.UserException
 import java.io.IOException
+import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
-import java.nio.file.FileSystemException
 import java.nio.file.Path
 
 /** Read access to one platform's source tree. Behind an interface so evidence checks can be tested in memory. */

@@ -39,7 +39,13 @@ class ProcessCommandRunnerTest {
 
     @Test
     fun `runs in the given directory with exactly the given environment`() {
-        val result = runner.run("sh", listOf("-c", "pwd; echo \"[\$ONLY]\" \"[\$HOME]\""), timeout = 10.seconds, cwd = dir, env = mapOf("ONLY" to "this"))
+        val result = runner.run(
+            "sh",
+            listOf("-c", "pwd; echo \"[\$ONLY]\" \"[\$HOME]\""),
+            timeout = 10.seconds,
+            cwd = dir,
+            env = mapOf("ONLY" to "this"),
+        )
         assertEquals("$dir\n[this] []\n", result.stdout)
     }
 
@@ -52,7 +58,10 @@ class ProcessCommandRunnerTest {
     @Test
     fun `stops a program that runs past its timeout`() {
         val elapsed = measureTime {
-            val error = assertFailsWith<CommandTimeoutException> { runner.run("sleep", listOf("30"), timeout = 200.milliseconds, cwd = dir, env = env) }
+            val error =
+                assertFailsWith<CommandTimeoutException> {
+                    runner.run("sleep", listOf("30"), timeout = 200.milliseconds, cwd = dir, env = env)
+                }
             assertContains(error.message!!, "did not finish within 200ms")
         }
         assertFalse(elapsed > 5.seconds, "the program was not stopped in time: $elapsed")
@@ -68,7 +77,12 @@ class ProcessCommandRunnerTest {
         val child = ProcessHandle.of(Files.readString(pidFile).trim().toLong())
         try {
             // A process that was stopped can take a moment to disappear
-            val gone = (1..20).any { child.map { !it.isAlive }.orElse(true) || run { Thread.sleep(100); false } }
+            val gone = (1..20).any {
+                child.map { !it.isAlive }.orElse(true) || run {
+                    Thread.sleep(100)
+                    false
+                }
+            }
             assertTrue(gone, "the child process was left running after the timeout")
         } finally {
             child.ifPresent { it.destroyForcibly() }
@@ -90,7 +104,10 @@ class ProcessCommandRunnerTest {
         // The short sleep makes sure the reader is already blocked when sh exits. Otherwise the JDK drains and
         // closes the pipe on exit by itself, and the case this test is about does not happen.
         val elapsed = measureTime {
-            val error = assertFailsWith<IOException> { runner.run("sh", listOf("-c", "sleep 5 & sleep 0.5"), timeout = 10.seconds, cwd = dir, env = env) }
+            val error =
+                assertFailsWith<IOException> {
+                    runner.run("sh", listOf("-c", "sleep 5 & sleep 0.5"), timeout = 10.seconds, cwd = dir, env = env)
+                }
             assertContains(error.message!!, "output was still open")
         }
         assertFalse(elapsed > 4.seconds, "waited too long for the output: $elapsed")
@@ -98,7 +115,10 @@ class ProcessCommandRunnerTest {
 
     @Test
     fun `reports a missing working directory as such, not as a missing program`() {
-        val error = assertFailsWith<IllegalArgumentException> { runner.run("cat", emptyList(), timeout = 10.seconds, cwd = dir.resolve("missing"), env = env) }
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                runner.run("cat", emptyList(), timeout = 10.seconds, cwd = dir.resolve("missing"), env = env)
+            }
         assertContains(error.message!!, "working directory")
     }
 
@@ -110,7 +130,10 @@ class ProcessCommandRunnerTest {
 
     @Test
     fun `reports a missing program clearly`() {
-        val error = assertFailsWith<CommandNotFoundException> { runner.run("driftcheck-no-such-program", emptyList(), timeout = 10.seconds, cwd = dir, env = env) }
+        val error =
+            assertFailsWith<CommandNotFoundException> {
+                runner.run("driftcheck-no-such-program", emptyList(), timeout = 10.seconds, cwd = dir, env = env)
+            }
         assertEquals("\"driftcheck-no-such-program\" was not found on PATH", error.message)
     }
 }

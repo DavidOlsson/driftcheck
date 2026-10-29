@@ -24,11 +24,7 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
 /** What a command needs from the outside world, passed in so commands can be tested without it. */
-class Deps(
-    val claude: ClaudeClient,
-    val now: () -> Instant = Instant::now,
-    val log: (String) -> Unit = {},
-)
+class Deps(val claude: ClaudeClient, val now: () -> Instant = Instant::now, val log: (String) -> Unit = {})
 
 data class CompareResult(val findings: List<VerifiedFinding>, val reportFile: Path, val usage: Usage)
 
@@ -40,7 +36,9 @@ private class Described(val spec: VerifiedFeatureSpec, val usage: Usage)
  */
 fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
     val feature = config.feature(featureId)
-    deps.log("Comparing \"${feature.name}\" with ${config.model} via Claude Code (at most ${budget(config.maxBudgetUsd)} USD per run, 3 runs)…")
+    deps.log(
+        "Comparing \"${feature.name}\" with ${config.model} via Claude Code (at most ${budget(config.maxBudgetUsd)} USD per run, 3 runs)…",
+    )
 
     val described = describeBoth { platform ->
         val result = extractFeature(deps.claude, config, feature, platform)

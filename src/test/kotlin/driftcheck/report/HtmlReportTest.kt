@@ -28,12 +28,16 @@ class HtmlReportTest {
     private val iosLimit = VerifiedEvidence("Search/Search.swift", 5, "limit: 50", EvidenceStatus.QUOTE_NOT_FOUND)
 
     private val android = VerifiedFeatureSpec(
-        "search", Platform.ANDROID, "Searches as you type",
+        "search",
+        Platform.ANDROID,
+        "Searches as you type",
         listOf(VerifiedSpecItem("api.limit", Section.API, "Limit", "20", listOf(androidLimit), true)),
         notFound = listOf("voice search"),
     )
     private val ios = VerifiedFeatureSpec(
-        "search", Platform.IOS, "Searches on submit",
+        "search",
+        Platform.IOS,
+        "Searches on submit",
         listOf(VerifiedSpecItem("api.limit", Section.API, "Limit", "50", listOf(iosLimit), false)),
         coverage = listOf(SectionCoverage(Section.STORAGE, CoverageStatus.NOT_INSPECTED)),
     )
@@ -55,17 +59,26 @@ class HtmlReportTest {
         usage = Usage(12_345, 678, 1.2, PlanUsage(fiveHour = PlanWindow(WindowStatus.ALLOWED_WARNING, 80, 75, "2026-10-13T12:00:00Z"))),
         findings = listOf(
             finding(
-                FindingCategory.MISSING, Severity.MEDIUM, "Voice search <img src=https://evil.example/x>",
-                VerifiedPlatformSide("Mic button\" onmouseover=\"alert(1)", emptyList(), "Mic \u001b[2J"), null,
+                FindingCategory.MISSING,
+                Severity.MEDIUM,
+                "Voice search <img src=https://evil.example/x>",
+                VerifiedPlatformSide("Mic button\" onmouseover=\"alert(1)", emptyList(), "Mic \u001b[2J"),
+                null,
             ),
             finding(
-                FindingCategory.BEHAVIOR, Severity.HIGH, "Different result limits",
-                VerifiedPlatformSide("20 results", listOf(androidLimit), "20"), VerifiedPlatformSide("50 results", listOf(iosLimit), "50"),
+                FindingCategory.BEHAVIOR,
+                Severity.HIGH,
+                "Different result limits",
+                VerifiedPlatformSide("20 results", listOf(androidLimit), "20"),
+                VerifiedPlatformSide("50 results", listOf(iosLimit), "50"),
                 question = "Is the higher limit on iOS intentional?",
             ),
             finding(
-                FindingCategory.EQUAL, Severity.INFO, "Both cancel in-flight requests",
-                VerifiedPlatformSide("Cancels", listOf(androidLimit)), VerifiedPlatformSide("Cancels", emptyList()),
+                FindingCategory.EQUAL,
+                Severity.INFO,
+                "Both cancel in-flight requests",
+                VerifiedPlatformSide("Cancels", listOf(androidLimit)),
+                VerifiedPlatformSide("Cancels", emptyList()),
             ),
         ),
     )
@@ -85,7 +98,10 @@ class HtmlReportTest {
     @Test
     fun `names the app, the feature and the analyzed folders at the top`() {
         assertContains(report, """<h1><span class="app">Wikipedia &lt;beta&gt;</span><span class="feature">Search</span></h1>""")
-        assertContains(report, """<span class="plat android">Android</span> <code>android</code> vs <span class="plat ios">iOS</span> <code>apps/ios</code>""")
+        assertContains(
+            report,
+            """<span class="plat android">Android</span> <code>android</code> vs <span class="plat ios">iOS</span> <code>apps/ios</code>""",
+        )
     }
 
     @Test
@@ -139,7 +155,8 @@ class HtmlReportTest {
 
     @Test
     fun `says so when the platforms do not differ`() {
-        val same = renderCompareReport(subject, run.copy(findings = run.findings.filter { it.category == FindingCategory.EQUAL }), android, ios)
+        val same =
+            renderCompareReport(subject, run.copy(findings = run.findings.filter { it.category == FindingCategory.EQUAL }), android, ios)
         assertContains(same, "No differences found.")
         assertFalse("data-sev=" in same)
     }

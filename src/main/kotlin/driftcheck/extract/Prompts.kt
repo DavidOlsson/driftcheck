@@ -11,13 +11,19 @@ private val PLATFORM_NAMES = mapOf(
 
 /** What each section must cover. The same for both platforms, so the descriptions can be paired. */
 val SECTION_GUIDE: Map<Section, String> = mapOf(
-    Section.ENTRY_POINTS to "Every way the feature is started (screens, buttons, shortcuts, widgets, deep links, share/intents, voice input) and how the user moves through it.",
-    Section.INPUT_HANDLING to "Debounce/delay timings, minimum and maximum lengths, trimming and normalization, validation, duplicate-request suppression.",
-    Section.API to "Every endpoint and action, every request parameter with its value (limits, offsets, image/thumbnail sizes, namespaces, extra lists), paging, retries, timeouts and fallbacks. Check whether each fetched field is actually used by the UI.",
+    Section.ENTRY_POINTS to
+        "Every way the feature is started (screens, buttons, shortcuts, widgets, deep links, share/intents, voice input) and how the user moves through it.",
+    Section.INPUT_HANDLING to
+        "Debounce/delay timings, minimum and maximum lengths, trimming and normalization, validation, duplicate-request suppression.",
+    Section.API to
+        "Every endpoint and action, every request parameter with its value (limits, offsets, image/thumbnail sizes, namespaces, extra lists), paging, retries, timeouts and fallbacks. Check whether each fetched field is actually used by the UI.",
     Section.LOCALIZATION to "Which language, region or content variant is used, how it is chosen and switched, right-to-left support.",
-    Section.PRESENTATION to "Read the UI code (screens, list rows, adapters, composables, views). Row layout and line limits, image display size, highlighting, long-press/context menus and swipe actions, loading state, empty state, idle state before input, error state and retry.",
-    Section.STORAGE to "What is persisted (e.g. recent items), where, maximum count, de-duplication rules, when it is saved, and how it is cleared.",
-    Section.OTHER to "Analytics events, caching, offline behavior, accessibility, feature flags/experiments, and anything else that affects behavior.",
+    Section.PRESENTATION to
+        "Read the UI code (screens, list rows, adapters, composables, views). Row layout and line limits, image display size, highlighting, long-press/context menus and swipe actions, loading state, empty state, idle state before input, error state and retry.",
+    Section.STORAGE to
+        "What is persisted (e.g. recent items), where, maximum count, de-duplication rules, when it is saved, and how it is cleared.",
+    Section.OTHER to
+        "Analytics events, caching, offline behavior, accessibility, feature flags/experiments, and anything else that affects behavior.",
     Section.CONSTANTS to "Every numeric or string constant that affects the feature's behavior, with its value.",
 )
 

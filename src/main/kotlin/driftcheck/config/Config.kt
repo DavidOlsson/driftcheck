@@ -3,8 +3,8 @@ package driftcheck.config
 import driftcheck.UserException
 import driftcheck.claude.isModelId
 import driftcheck.model.Platform
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Files
@@ -67,11 +67,10 @@ data class Config(
 ) {
     fun root(platform: Platform): Path = platforms.getValue(platform)
 
-    fun feature(id: String): FeatureConfig =
-        features.find { it.id == id } ?: throw ConfigException(
-            "Unknown feature \"$id\". Configured features: ${features.joinToString(", ") { it.id }.ifEmpty { "none" }}. " +
-                "Add it to $CONFIG_PATH.",
-        )
+    fun feature(id: String): FeatureConfig = features.find { it.id == id } ?: throw ConfigException(
+        "Unknown feature \"$id\". Configured features: ${features.joinToString(", ") { it.id }.ifEmpty { "none" }}. " +
+            "Add it to $CONFIG_PATH.",
+    )
 
     fun withModel(model: String): Config {
         checkModel(model, "--model")
@@ -152,7 +151,9 @@ fun loadConfig(projectRoot: Path, allowExternalPaths: Boolean = false): Config {
     val realProjectRoot = config.projectRoot.toRealPath()
     for ((platform, root) in config.platforms) {
         if (!Files.isDirectory(root)) {
-            throw ConfigException("The ${platform.displayName} source root $root does not exist. Fix platforms.${platform.id}.path in $CONFIG_PATH.")
+            throw ConfigException(
+                "The ${platform.displayName} source root $root does not exist. Fix platforms.${platform.id}.path in $CONFIG_PATH.",
+            )
         }
         // A symlink inside the project could still lead the agent somewhere else on the machine
         if (!allowExternalPaths && !root.toRealPath().startsWith(realProjectRoot)) {

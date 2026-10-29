@@ -96,7 +96,9 @@ class Store(projectRoot: Path) {
             }
             if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
                 val what = if (Files.isSymbolicLink(current)) "a symlink" else "not a directory"
-                throw UserException("$current is $what. driftcheck only writes to real directories inside $CONFIG_DIR/; remove it and run again.")
+                throw UserException(
+                    "$current is $what. driftcheck only writes to real directories inside $CONFIG_DIR/; remove it and run again.",
+                )
             }
         }
     }

@@ -5,8 +5,7 @@ import driftcheck.model.Usage
 import driftcheck.model.WindowStatus
 import java.util.Locale
 
-fun tokenCounts(usage: Usage): String =
-    String.format(Locale.ENGLISH, "%,d in, %,d out", usage.inputTokens, usage.outputTokens)
+fun tokenCounts(usage: Usage): String = String.format(Locale.ENGLISH, "%,d in, %,d out", usage.inputTokens, usage.outputTokens)
 
 /** Reports must not depend on the machine's time zone. */
 fun formatUtc(iso: String): String = if (iso.length >= 16) "${iso.substring(0, 10)} ${iso.substring(11, 16)} UTC" else iso
@@ -15,10 +14,12 @@ private fun windowState(window: PlanWindow): String {
     val used = window.usedPercent?.let { "$it% used" }
     return when (window.status) {
         WindowStatus.REJECTED -> "limit reached"
+
         WindowStatus.ALLOWED_WARNING -> {
             val over = window.thresholdPercent?.let { "over $it% used" } ?: used
             "approaching limit" + (over?.let { " ($it)" } ?: "")
         }
+
         else -> used ?: "OK"
     }
 }

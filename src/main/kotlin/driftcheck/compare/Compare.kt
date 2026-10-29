@@ -77,12 +77,26 @@ private fun withStatus(side: PlatformSide?, index: Map<String, VerifiedEvidence>
  * Keeps only evidence that exists in the two descriptions, so the comparison step cannot add file references the
  * verification never checked, and sorts the findings into report order.
  */
-fun sanitizeFindings(findings: List<Finding>, feature: String, android: VerifiedFeatureSpec, ios: VerifiedFeatureSpec): List<VerifiedFinding> {
+fun sanitizeFindings(
+    findings: List<Finding>,
+    feature: String,
+    android: VerifiedFeatureSpec,
+    ios: VerifiedFeatureSpec,
+): List<VerifiedFinding> {
     val androidIndex = evidenceIndex(android)
     val iosIndex = evidenceIndex(ios)
     return findings
         .map { f ->
-            VerifiedFinding(feature, f.category, f.severity, f.title, f.keys, withStatus(f.android, androidIndex), withStatus(f.ios, iosIndex), f.question)
+            VerifiedFinding(
+                feature,
+                f.category,
+                f.severity,
+                f.title,
+                f.keys,
+                withStatus(f.android, androidIndex),
+                withStatus(f.ios, iosIndex),
+                f.question,
+            )
         }
         .sortedWith(compareBy({ it.category.ordinal }, { it.severity.ordinal }))
 }
