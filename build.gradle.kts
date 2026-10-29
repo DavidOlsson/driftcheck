@@ -44,4 +44,8 @@ ktlint {
 
 tasks.test {
     useJUnitPlatform()
+    // Lets the version test compare with the build's version instead of a copy that goes stale on every release
+    val version = project.version.toString()
+    inputs.property("version", version)
+    systemProperty("driftcheck.expectedVersion", version)
 }
