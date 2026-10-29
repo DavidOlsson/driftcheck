@@ -3,6 +3,8 @@ plugins {
     // Reads the config and validates all model output against the expected structure
     kotlin("plugin.serialization") version "2.4.21"
     application
+    // Checks the code style on every build, so CI fails on formatting errors too
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 group = "io.github.davidolsson"
@@ -34,6 +36,10 @@ tasks.processResources {
     filesMatching("version.properties") {
         expand("version" to version)
     }
+}
+
+ktlint {
+    version.set("1.8.0")
 }
 
 tasks.test {
