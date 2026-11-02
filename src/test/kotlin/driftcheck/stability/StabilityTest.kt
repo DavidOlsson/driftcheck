@@ -72,7 +72,7 @@ class StabilityTest {
                 sharedKeys = Share(1, 4),
                 differences = 3,
                 missing = 1,
-                bundled = 1,
+                bundled = 0,
             ),
             s.a,
         )
@@ -83,6 +83,18 @@ class StabilityTest {
         assertEquals(Share(2, 2), s.bFoundInA)
         assertEquals(Share(1, 2), s.sameCategory)
         assertEquals(Share(1, 2), s.sameSeverity)
+    }
+
+    @Test
+    fun `counts a difference as bundled only with more than one key from the same platform`() {
+        val run = run(
+            android = listOf("api.limit", "api.timeout"),
+            ios = listOf("api.page_size"),
+            // The same behavior, named differently on each platform
+            finding(FindingCategory.BEHAVIOR, Severity.LOW, "api.limit", "api.page_size"),
+            finding(FindingCategory.BUG, Severity.HIGH, "api.limit", "api.timeout"),
+        )
+        assertEquals(1, stability(run, run).a.bundled)
     }
 
     @Test

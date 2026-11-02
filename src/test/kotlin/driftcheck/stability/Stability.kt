@@ -38,7 +38,10 @@ data class RunShape(
     val sharedKeys: Share,
     val differences: Int,
     val missing: Int,
-    /** Differences that cover more than one key, i.e. several behaviors bundled into one finding. */
+    /**
+     * Differences with more than one key from the same platform, i.e. several behaviors bundled into one finding. One key
+     * per platform is the same behavior named differently, which the comparison may do.
+     */
     val bundled: Int,
 )
 
@@ -91,7 +94,7 @@ private fun shape(run: RunResults): RunShape {
         sharedKeys = Share((android intersect ios).size, (android union ios).size),
         differences = differences.size,
         missing = differences.count { it.category == FindingCategory.MISSING },
-        bundled = differences.count { it.keys.size > 1 },
+        bundled = differences.count { finding -> listOf(android, ios).any { platform -> finding.keys.count(platform::contains) > 1 } },
     )
 }
 
@@ -130,7 +133,7 @@ fun format(s: Stability): String = buildString {
     row("keys shared by Android and iOS", s.a.sharedKeys, s.b.sharedKeys)
     row("differences", s.a.differences, s.b.differences)
     row("  missing on one side", s.a.missing, s.b.missing)
-    row("  bundled (more than one key)", s.a.bundled, s.b.bundled)
+    row("  bundled (2+ keys on a platform)", s.a.bundled, s.b.bundled)
     appendLine("Between the runs (same difference: shared key, or evidence within $SAME_PLACE_LINES lines)")
     for ((platform, share) in s.sameKeys) appendLine("  ${"same ${platform.displayName} keys".padEnd(35)}$share")
     appendLine("  ${"A's differences also in B".padEnd(35)}${s.aFoundInB}")
