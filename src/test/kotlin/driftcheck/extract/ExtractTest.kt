@@ -75,6 +75,15 @@ class ExtractTest {
     }
 
     @Test
+    fun `offers the other platform's keys so the same behavior gets the same key`() {
+        val client = FakeClaudeClient.answering(spec())
+        extractFeature(client, config, feature, Platform.IOS, listOf(KnownItem("api.limit", "Results per page\nmore detail")))
+        val prompt = client.requests.single().prompt
+        assertContains(prompt, "- api.limit: Results per page\n")
+        assertContains(prompt, "Use the same key for an item that describes the same behavior")
+    }
+
+    @Test
     fun `refuses a description that breaks the rules`() {
         val bad = spec().replace("api.limit", "API Limit")
         assertContains(

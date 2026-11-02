@@ -14,11 +14,17 @@ import driftcheck.model.problems
 import driftcheck.model.withoutUnsupportedItems
 
 /** Lets a read-only agent in the platform's source root describe the feature, and validates the answer. */
-fun extractFeature(client: ClaudeClient, config: Config, feature: FeatureConfig, platform: Platform): Structured<FeatureSpec> {
+fun extractFeature(
+    client: ClaudeClient,
+    config: Config,
+    feature: FeatureConfig,
+    platform: Platform,
+    known: List<KnownItem> = emptyList(),
+): Structured<FeatureSpec> {
     val task = StructuredTask(
         serializer = FeatureSpec.serializer(),
         systemPrompt = EXTRACT_SYSTEM_PROMPT,
-        prompt = extractPrompt(platform, feature),
+        prompt = extractPrompt(platform, feature, known),
         tools = READ_ONLY_TOOLS,
         cwd = config.root(platform),
         timeout = config.agentTimeout,

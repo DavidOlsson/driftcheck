@@ -76,7 +76,7 @@ driftcheck verify .driftcheck/specs/search/android.json   # checks a description
 driftcheck --help                    # all commands and options
 ```
 
-`compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. Before it starts, it shows the maximum total cost. It writes:
+`compare` makes three Claude runs: one read-only agent per platform, then one run without tools that compares the two descriptions. Android is described first, and the iOS agent is given Android's keys, so the same behavior gets the same key on both platforms and the comparison can pair them. Before it starts, it shows the maximum total cost. It writes:
 
 - `.driftcheck/specs/<feature>/{android,ios}.json`: the verified descriptions
 - `.driftcheck/findings/<feature>.json`: the findings, with the model and usage of the run
@@ -161,6 +161,7 @@ Findings may only cite evidence from the two descriptions. The report marks refe
 ```bash
 ./gradlew build          # compiles, runs the tests (Claude is never called) and checks the style with ktlint
 ./gradlew ktlintFormat   # fixes style errors
+./gradlew stability -Pa=<dir> -Pb=<dir>   # how much two saved runs (.driftcheck folders or results artifacts) agree
 ```
 
 - **CI** runs `./gradlew build` on every pull request.

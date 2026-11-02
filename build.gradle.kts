@@ -42,6 +42,18 @@ ktlint {
     version.set("1.8.0")
 }
 
+// A development tool: how much two saved runs on the same code agree. Not part of driftcheck itself.
+tasks.register<JavaExec>("stability") {
+    group = "verification"
+    description = "Compares two saved results folders: ./gradlew stability -Pa=<dir> -Pb=<dir> [-Pfeature=search]"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("driftcheck.stability.StabilityKt")
+    val a = providers.gradleProperty("a").orElse("")
+    val b = providers.gradleProperty("b").orElse("")
+    val feature = providers.gradleProperty("feature").orElse("search")
+    argumentProviders.add(CommandLineArgumentProvider { listOf(a.get(), b.get(), feature.get()) })
+}
+
 tasks.test {
     useJUnitPlatform()
     // Lets the version test compare with the build's version instead of a copy that goes stale on every release

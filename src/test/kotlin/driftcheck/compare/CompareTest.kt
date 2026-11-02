@@ -17,6 +17,7 @@ import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class CompareTest {
     private fun spec(platform: Platform, vararg evidence: VerifiedEvidence) = VerifiedFeatureSpec(
@@ -69,6 +70,22 @@ class CompareTest {
         assertEquals(VerifiedEvidence("Search.kt", 20, "retry()", EvidenceStatus.VERIFIED), sanitized[1].android!!.evidence.single())
         assertEquals(null, sanitized[1].ios)
         assertEquals("search", sanitized[2].feature)
+    }
+
+    @Test
+    fun `asks for one finding per difference, paired by key, with categories in a fixed order`() {
+        assertContains(COMPARE_SYSTEM_PROMPT, "Pair items first by key")
+        assertContains(COMPARE_SYSTEM_PROMPT, "One finding per difference")
+        assertContains(COMPARE_SYSTEM_PROMPT, "never split one difference over two findings")
+        val order = listOf(
+            "1. \"missing\"",
+            "2. \"bug\"",
+            "3. \"behavior\"",
+            "4. \"ui\"",
+            "5. \"equal\"",
+        ).map(COMPARE_SYSTEM_PROMPT::indexOf)
+        assertEquals(order.sorted(), order)
+        assertTrue(order.all { it >= 0 })
     }
 
     @Test

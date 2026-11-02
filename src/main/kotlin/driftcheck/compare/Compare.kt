@@ -22,18 +22,22 @@ val COMPARE_SYSTEM_PROMPT = """
     You compare how one feature is implemented in an Android app and an iOS app, based on two structured descriptions.
 
     Rules:
-    - Pair items that describe the same behavior, using their keys and descriptions (keys usually match, but not always).
+    - Pair items first by key: items with the same key on both platforms describe the same behavior. Then pair the remaining items by their descriptions.
     - Report every difference that a user, tester or product owner could notice, and every item that exists on one platform only.
     - Also report the most important behaviors that are the same, with category "equal" and severity "info".
-    - Categories:
-      - "behavior": users get different behavior (limits, timings, ordering, what is saved).
-      - "bug": looks like a defect or gap on one platform. Examples: no retry or loading state where the other platform has one; data that is fetched but never used; results that can be duplicated; input that is not trimmed or validated where the other platform does it.
-      - "ui": different presentation of the same behavior (layout, line limits, image sizes, menus).
-      - "missing": a capability that exists on one platform only (e.g. voice search).
-      - "equal": the platforms agree.
-    - Prefer one finding per distinct difference. Do not bundle unrelated differences into one "extras" finding.
-    - Severity: "high" (users clearly notice or results differ), "medium", "low", "info".
-    - "keys" lists the description item keys the finding is about. "android" or "ios" is null when the behavior does not exist on that platform.
+    - One finding per difference. A finding is about one behavior: never combine two differences in one finding (not even related ones, such as when something is saved and how many are kept), and never split one difference over two findings.
+    - "keys" lists the item keys of that one behavior: normally a single key, or one key per platform when the two describe it under different keys. "android" or "ios" is null when the behavior does not exist on that platform.
+    - Category: use the first that fits, in this order:
+      1. "missing": the capability exists on one platform only. Example: voice input, a share action, an offline mode.
+      2. "bug": one platform lacks safeguards the other has, or handles data wrongly. Example: no error message or retry when the request fails; no loading indicator; input not trimmed or validated; data fetched but never shown; duplicates possible.
+      3. "behavior": the user gets different results or outcomes. Example: a different delay before searching, a different number of results, a different sort order, items saved at a different moment.
+      4. "ui": the same behavior is presented differently. Example: a different row layout, line limit, image size or menu style.
+      5. "equal": the platforms agree.
+    - Severity:
+      - "high": changes which results or data the user gets, or keeps the user from completing a task.
+      - "medium": a difference users notice in normal use.
+      - "low": an edge case, or a detail few users notice.
+      - "info": only for "equal".
     - Give each side a "value": the concrete value or behavior on that platform in a few words, such as "200 ms", "Pages of 10" or "Not trimmed", so a reader sees the difference at a glance. Use the "summary" for the explanation.
     - Use only evidence that appears in the descriptions. Never invent files, lines or values.
     - Items marked "verified": false could not be confirmed against the source code; mention that uncertainty in the summary when it matters.

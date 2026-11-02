@@ -6,6 +6,7 @@ import driftcheck.compare.compareSpecs
 import driftcheck.config.Config
 import driftcheck.evidence.summarize
 import driftcheck.evidence.verifySpec
+import driftcheck.extract.KnownItem
 import driftcheck.extract.extractFeature
 import driftcheck.model.CompareRun
 import driftcheck.model.Platform
@@ -21,8 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Executors
 
 /** What a command needs from the outside world, passed in so commands can be tested without it. */
 class Deps(val claude: ClaudeClient, val now: () -> Instant = Instant::now, val log: (String) -> Unit = {})
@@ -44,16 +43,26 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
             "each, so at most ${budget(config.maxBudgetUsd * runs)} USD in total…",
     )
 
-    val described = describeBoth { platform ->
-        val result = extractFeature(deps.claude, config, feature, platform)
+    fun describe(platform: Platform, known: List<KnownItem>): Described {
+        val result = extractFeature(deps.claude, config, feature, platform, known)
         val verified = verifySpec(result.output, FsSourceReader(config.root(platform)))
         val summary = summarize(verified)
         deps.log("  ${platform.displayName}: ${summary.items} items, ${summary.verifiedItems} verified against the source")
-        Described(verified, result.usage)
+        return Described(verified, result.usage)
     }
-    val android = described.getValue(Platform.ANDROID).spec
-    val ios = described.getValue(Platform.IOS).spec
-    val describedUsage = described.values.fold(Usage.NONE) { sum, d -> sum + d.usage }
+
+    // One after the other, so iOS can reuse Android's keys: the same behavior then gets the same key on both platforms,
+    // and the comparison pairs items by key instead of guessing. It takes longer, but costs the same.
+    val androidRun = describe(Platform.ANDROID, emptyList())
+    val iosRun = try {
+        describe(Platform.IOS, androidRun.spec.items.map { KnownItem(it.key, it.description) })
+    } catch (e: ClaudeRunException) {
+        // The Android run counts toward the plan too
+        throw ClaudeRunException(e.message!!, androidRun.usage + e.usage, e)
+    }
+    val android = androidRun.spec
+    val ios = iosRun.spec
+    val describedUsage = androidRun.usage + iosRun.usage
 
     // An empty directory: the comparison has no tools, and nothing project-specific should be within reach
     val workDir = try {
@@ -98,29 +107,3 @@ fun runCompare(config: Config, featureId: String, deps: Deps): CompareResult {
 }
 
 private fun budget(usd: Double) = BigDecimal.valueOf(usd).stripTrailingZeros().toPlainString()
-
-/**
- * Describes both platforms at the same time. When a run fails, the other one is still waited for, and the error
- * carries what both used, because a failed run counts toward the plan too.
- */
-private fun describeBoth(describe: (Platform) -> Described): Map<Platform, Described> {
-    val executor = Executors.newFixedThreadPool(Platform.entries.size)
-    try {
-        val futures = Platform.entries.associateWith { platform -> executor.submit<Described> { describe(platform) } }
-        val outcomes = futures.mapValues { (_, future) ->
-            try {
-                Result.success(future.get())
-            } catch (e: ExecutionException) {
-                Result.failure(e.cause ?: e)
-            }
-        }
-        val failure = outcomes.values.firstNotNullOfOrNull { it.exceptionOrNull() } ?: return outcomes.mapValues { it.value.getOrThrow() }
-        if (failure !is ClaudeRunException) throw failure
-        val used = outcomes.values.fold(Usage.NONE) { sum, outcome ->
-            sum + (outcome.getOrNull()?.usage ?: (outcome.exceptionOrNull() as? ClaudeRunException)?.usage ?: Usage.NONE)
-        }
-        throw ClaudeRunException(failure.message!!, used, failure)
-    } finally {
-        executor.shutdownNow()
-    }
-}
