@@ -28,6 +28,7 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - **Processes behind interfaces.** Running `claude` (and any other process) sits behind an interface, so everything above it is tested with fakes. Comparison logic and report rendering are pure functions.
 - **No global mutable state.** Configuration and dependencies are passed explicitly.
 - **Clear errors.** Expected problems (missing login, invalid config, a run that hits its budget) give a message that says what to do. Errors are never swallowed.
+- **Same keys on both platforms.** Android is described first and the iOS run is given Android's keys, so the comparison pairs items by key instead of guessing. This is why the two runs are sequential.
 - **Usage is visible.** Every run has a budget (`--max-budget-usd`), and reports show the plan usage Claude Code reports.
 - **Comments explain why, not what.**
 
@@ -35,6 +36,7 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - Build and test: `./gradlew build`
 - Tests only: `./gradlew test`
 - Runnable copy: `./gradlew installDist`, then `build/install/driftcheck/bin/driftcheck`
+- Stability of two saved runs: `./gradlew stability -Pa=<dir> -Pb=<dir>` (a dev tool in `src/test/kotlin/driftcheck/stability`, not a driftcheck command). Use it to judge prompt changes by numbers.
 - Code style: `./gradlew ktlintCheck` (part of `build`); fix with `./gradlew ktlintFormat`
 - Release: raise `version` in `build.gradle.kts`; CI publishes it after the merge to main
 
