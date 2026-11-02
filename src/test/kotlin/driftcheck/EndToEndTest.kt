@@ -132,8 +132,12 @@ class EndToEndTest {
         assertContains(result.out, "Report: .driftcheck/reports/search.html")
         assertContains(result.out, "Plan usage: 5-hour window 30% used, resets Tue 15:00")
 
-        // Two read-only agents in their own roots, then one run without tools outside the project
+        // Two read-only agents in their own roots, Android first so iOS can reuse its keys, then one run without tools
         assertEquals(3, claude.requests.size)
+        assertEquals(listOf(androidRoot, iosRoot), claude.requests.take(2).map { it.cwd })
+        assertFalse("already uses these keys" in claude.requests[0].prompt)
+        assertContains(claude.requests[1].prompt, "already uses these keys")
+        assertContains(claude.requests[1].prompt, "- input_handling.debounce_ms:")
         val agents = claude.requests.filter { it.options.tools.isNotEmpty() }
         assertEquals(setOf(androidRoot, iosRoot), agents.map { it.cwd }.toSet())
         assertTrue(agents.all { it.options.tools == READ_ONLY_TOOLS })
