@@ -12,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class ExtractTest {
     private val config = parseConfig(
@@ -81,6 +82,16 @@ class ExtractTest {
         val prompt = client.requests.single().prompt
         assertContains(prompt, "- api.limit: Results per page\n")
         assertContains(prompt, "Use the same key for an item that describes the same behavior")
+    }
+
+    @Test
+    fun `offers the other platform's keys only for naming, after the sections`() {
+        val client = FakeClaudeClient.answering(spec())
+        extractFeature(client, config, feature, Platform.IOS, listOf(KnownItem("api.limit", "Results per page")))
+        val prompt = client.requests.single().prompt
+        assertContains(prompt, "as thoroughly as if no other description existed")
+        assertContains(prompt, "They are not a checklist")
+        assertTrue(prompt.indexOf("- constants:") < prompt.indexOf("- api.limit:"), "the keys come after the sections")
     }
 
     @Test
