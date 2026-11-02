@@ -1,25 +1,38 @@
 package driftcheck.stability
 
 import driftcheck.model.CompareRun
+import driftcheck.model.EvidenceStatus
 import driftcheck.model.FindingCategory
 import driftcheck.model.Platform
 import driftcheck.model.Section
 import driftcheck.model.Severity
 import driftcheck.model.Usage
+import driftcheck.model.VerifiedEvidence
 import driftcheck.model.VerifiedFeatureSpec
 import driftcheck.model.VerifiedFinding
+import driftcheck.model.VerifiedPlatformSide
 import driftcheck.model.VerifiedSpecItem
 import driftcheck.model.storeJson
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class StabilityTest {
     private fun spec(platform: Platform, vararg keys: String) = VerifiedFeatureSpec(
         "search",
         platform,
         "summary",
-        keys.map { VerifiedSpecItem(it, Section.API, "description", evidence = emptyList(), verified = false) },
+        keys.map {
+            VerifiedSpecItem(
+                it,
+                Section.API,
+                "description",
+                evidence = listOf(VerifiedEvidence("${platform.id}.src", 1, "quote", EvidenceStatus.VERIFIED)),
+                verified = true,
+            )
+        },
     )
 
     private fun finding(category: FindingCategory, severity: Severity, vararg keys: String) =
@@ -51,12 +64,39 @@ class StabilityTest {
 
         val s = stability(a, b)
 
-        assertEquals(RunShape(sharedKeys = Share(1, 4), differences = 3, bundled = 1), s.a)
-        assertEquals(RunShape(sharedKeys = Share(2, 3), differences = 2, bundled = 0), s.b)
+        assertEquals(
+            RunShape(
+                items = mapOf(Platform.ANDROID to 3, Platform.IOS to 2),
+                ownKeys = mapOf(Platform.ANDROID to 2, Platform.IOS to 1),
+                filesCited = mapOf(Platform.ANDROID to 1, Platform.IOS to 1),
+                sharedKeys = Share(1, 4),
+                differences = 3,
+                missing = 1,
+                bundled = 1,
+            ),
+            s.a,
+        )
+        assertEquals(Share(2, 3), s.b.sharedKeys)
+        assertEquals(0, s.b.bundled)
         assertEquals(mapOf(Platform.ANDROID to Share(2, 4), Platform.IOS to Share(1, 3)), s.sameKeys)
-        assertEquals(Share(2, 3), s.matchedDifferences)
+        assertEquals(Share(2, 3), s.aFoundInB)
+        assertEquals(Share(2, 2), s.bFoundInA)
         assertEquals(Share(1, 2), s.sameCategory)
         assertEquals(Share(1, 2), s.sameSeverity)
+    }
+
+    @Test
+    fun `counts evidence at the same place as the same difference, even with other keys`() {
+        fun at(file: String, line: Int, vararg keys: String) = finding(FindingCategory.BUG, Severity.LOW, *keys).copy(
+            android = VerifiedPlatformSide("summary", listOf(VerifiedEvidence(file, line, "quote", EvidenceStatus.VERIFIED))),
+        )
+
+        assertTrue(sameDifference(at("Search.kt", 40, "a"), at("Search.kt", 40 + SAME_PLACE_LINES, "b")))
+        assertFalse(sameDifference(at("Search.kt", 40, "a"), at("Search.kt", 41 + SAME_PLACE_LINES, "b")))
+        assertFalse(sameDifference(at("Search.kt", 40, "a"), at("History.kt", 40, "b")))
+        // The same file and line on the other platform is other code
+        val ios = at("Search.kt", 40, "b").let { it.copy(android = null, ios = it.android) }
+        assertFalse(sameDifference(at("Search.kt", 40, "a"), ios))
     }
 
     @Test

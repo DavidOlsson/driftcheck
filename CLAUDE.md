@@ -36,7 +36,7 @@ driftcheck lets Claude read how one feature is implemented on each platform, des
 - Build and test: `./gradlew build`
 - Tests only: `./gradlew test`
 - Runnable copy: `./gradlew installDist`, then `build/install/driftcheck/bin/driftcheck`
-- Stability of two saved runs: `./gradlew stability -Pa=<dir> -Pb=<dir>` (a dev tool in `src/test/kotlin/driftcheck/stability`, not a driftcheck command). Use it to judge prompt changes by numbers.
+- Stability of two saved runs: `./gradlew stability -Pa=<dir> -Pb=<dir>` (a dev tool in `src/test/kotlin/driftcheck/stability`, not a driftcheck command). Use it to judge prompt changes by numbers, with a run from before the change as B to see that nothing found before is lost.
 - Code style: `./gradlew ktlintCheck` (part of `build`); fix with `./gradlew ktlintFormat`
 - Release: raise `version` in `build.gradle.kts`; CI publishes it after the merge to main
 
