@@ -5,8 +5,8 @@ import driftcheck.model.FindingCategory
 import driftcheck.model.Platform
 import driftcheck.model.VerifiedFeatureSpec
 import driftcheck.model.VerifiedFinding
+import driftcheck.model.modelJson
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.roundToInt
@@ -35,16 +35,13 @@ data class Stability(
     val b: RunShape,
     /** Per platform, the keys both runs gave an item. */
     val sameKeys: Map<Platform, Share>,
-    /** Differences in A that B also reports, matched by a shared key. */
+    /** Differences in A with at least one difference in B that shares a key. One-way, not a symmetric overlap. */
     val matchedDifferences: Share,
     val sameCategory: Share,
     val sameSeverity: Share,
 )
 
-// Older runs may lack newer fields, and newer runs may have fields this tool does not know; neither should stop it
-private val json = Json { ignoreUnknownKeys = true }
-
-private fun <T> read(file: Path, serializer: KSerializer<T>): T = json.decodeFromString(serializer, Files.readString(file))
+private fun <T> read(file: Path, serializer: KSerializer<T>): T = modelJson.decodeFromString(serializer, Files.readString(file))
 
 /** [dir] is a `.driftcheck/` folder or a results artifact with the same layout. */
 fun loadResults(dir: Path, feature: String): RunResults = RunResults(
