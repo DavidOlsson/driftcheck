@@ -46,7 +46,9 @@ data class KnownItem(val key: String, val description: String)
 
 /**
  * [known] are the other platform's items. Without them each agent invents its own keys, and the comparison has to guess
- * which items belong together; with them, the same behavior gets the same key on both platforms.
+ * which items belong together; with them, the same behavior gets the same key on both platforms. They come after the
+ * sections and only as names: offered as a list up front, an agent once described half as much and missed its own
+ * platform's entry points and constants.
  */
 fun extractPrompt(platform: Platform, feature: FeatureConfig, known: List<KnownItem> = emptyList()): String = buildString {
     appendLine("Describe how the feature \"${feature.name}\" is implemented in this ${PLATFORM_NAMES.getValue(platform)} app.")
@@ -56,18 +58,24 @@ fun extractPrompt(platform: Platform, feature: FeatureConfig, known: List<KnownI
         feature.hints.forEach { appendLine("- $it") }
     }
     appendLine()
+    appendLine("Cover these sections, using them as the \"section\" of each item:")
+    SECTION_GUIDE.forEach { (section, guide) -> appendLine("- ${section.id}: $guide") }
+    appendLine()
     if (known.isNotEmpty()) {
-        appendLine("The other platform's description of this feature already uses these keys:")
+        appendLine(
+            "Explore this app's code on its own, as thoroughly as if no other description existed: every section above, " +
+                "including entry points and constants. Behavior only this app has matters as much as shared behavior.",
+        )
+        appendLine()
+        appendLine("Only for naming your items: the other platform's description of this feature already uses these keys.")
+        appendLine("They are not a checklist and must not limit or steer what you look for.")
         known.forEach { appendLine("- ${it.key}: ${it.description.lineSequence().first().take(120)}") }
         appendLine()
         appendLine(
-            "Use the same key for an item that describes the same behavior, even if the value differs. Add a new key only " +
+            "Use the same key for an item that describes the same behavior, even if the value differs. Add a new key " +
                 "for behavior that none of these describes, and never reuse a key for a different behavior.",
         )
         appendLine()
     }
-    appendLine("Cover these sections, using them as the \"section\" of each item:")
-    SECTION_GUIDE.forEach { (section, guide) -> appendLine("- ${section.id}: $guide") }
-    appendLine()
     append("Return the result as structured output with feature \"${feature.id}\" and platform \"${platform.id}\".")
 }
