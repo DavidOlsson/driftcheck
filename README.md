@@ -1,5 +1,3 @@
-<p align="center"><img src="docs/logo.png" alt="driftcheck logo: two cars drifting side by side" width="240"></p>
-
 # driftcheck
 
 [![CI](https://github.com/DavidOlsson/driftcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidOlsson/driftcheck/actions/workflows/ci.yml)
