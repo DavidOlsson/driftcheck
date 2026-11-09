@@ -97,7 +97,8 @@ data class FeatureSpec(
     /** One entry per section, so a report can show which parts of the feature were actually examined. */
     val coverage: List<SectionCoverage> = emptyList(),
     /**
-     * Keys of items the agent gave without evidence, which were left out. Set by driftcheck, never by the model, so it
+     * Items the agent gave without evidence or against a rule, as key and reason, which were left out. Set by driftcheck,
+     * never by the model, so it
      * is not part of the schema.
      */
     @Transient
@@ -105,15 +106,27 @@ data class FeatureSpec(
 )
 
 /**
- * An item without evidence is a claim nothing can confirm, so it is left out. One such item should not cost the
- * whole description, so its key is kept for the report instead of rejecting the answer.
+ * An item without evidence is a claim nothing can confirm, and one that breaks a rule cannot be trusted or paired. One
+ * such item should not cost the whole description, so it is left out and its key and reason are kept for the report
+ * instead of rejecting the answer.
  */
-fun FeatureSpec.withoutUnsupportedItems(): FeatureSpec {
-    val (supported, unsupported) = items.partition { it.evidence.isNotEmpty() }
-    return copy(items = supported, omitted = omitted + unsupported.map { it.key })
+fun FeatureSpec.withoutInvalidItems(): FeatureSpec {
+    val reasons = items.associateWith { item ->
+        item.problems().joinToString("; ").ifEmpty { "no evidence".takeIf { item.evidence.isEmpty() } }
+    }
+    return copy(
+        items = items.filter { reasons[it] == null },
+        omitted = omitted + items.mapNotNull { item -> reasons[item]?.let { "${item.key} ($it)" } },
+    )
 }
 
 private val KEY = Regex("^[a-z0-9_]+(\\.[a-z0-9_]+)*$")
+
+private fun SpecItem.problems(): List<String> = buildList {
+    if (!KEY.matches(key)) add("key must be lowercase dot-separated snake_case")
+    if (description.isBlank()) add("description is empty")
+    evidence.forEachIndexed { j, e -> evidenceProblem(e)?.let { add("evidence[$j]: $it") } }
+}
 
 /**
  * Rules the JSON schema cannot express or the model may ignore. Model output is untrusted, so a description is only
@@ -122,12 +135,7 @@ private val KEY = Regex("^[a-z0-9_]+(\\.[a-z0-9_]+)*$")
 fun FeatureSpec.problems(): List<String> = buildList {
     if (feature.isBlank()) add("feature is empty")
     if (summary.isBlank()) add("summary is empty")
-    items.forEachIndexed { i, item ->
-        val where = "items[$i] (${item.key})"
-        if (!KEY.matches(item.key)) add("$where: key must be lowercase dot-separated snake_case")
-        if (item.description.isBlank()) add("$where: description is empty")
-        item.evidence.forEachIndexed { j, e -> evidenceProblem(e)?.let { add("$where.evidence[$j]: $it") } }
-    }
+    items.forEachIndexed { i, item -> item.problems().forEach { add("items[$i] (${item.key}): $it") } }
 }
 
 fun evidenceProblem(e: Evidence): String? = when {

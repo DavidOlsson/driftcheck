@@ -11,7 +11,7 @@ import driftcheck.config.FeatureConfig
 import driftcheck.model.FeatureSpec
 import driftcheck.model.Platform
 import driftcheck.model.problems
-import driftcheck.model.withoutUnsupportedItems
+import driftcheck.model.withoutInvalidItems
 
 /** Lets a read-only agent in the platform's source root describe the feature, and validates the answer. */
 fun extractFeature(
@@ -29,7 +29,8 @@ fun extractFeature(
         cwd = config.root(platform),
         timeout = config.agentTimeout,
         where = "the ${platform.displayName} description",
-        problems = { it.problems() },
+        // Only what is left after leaving out bad items has to pass, so one bad item does not cost the whole run
+        problems = { it.withoutInvalidItems().problems() },
     )
     val result = client.runStructured(task, config.model, config.maxBudgetUsd)
     // The agent is told which feature and platform to describe, but the caller is the source of truth
@@ -40,7 +41,7 @@ fun extractFeature(
             result.usage,
         )
     }
-    val supported = spec.withoutUnsupportedItems()
+    val supported = spec.withoutInvalidItems()
     // Comparing an empty description would spend another run only to report everything as missing
     if (supported.items.isEmpty()) {
         throw ClaudeRunException(
