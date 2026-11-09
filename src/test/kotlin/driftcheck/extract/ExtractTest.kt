@@ -63,7 +63,7 @@ class ExtractTest {
         )
         val result = extractFeature(FakeClaudeClient.answering(withEmpty), config, feature, Platform.IOS).output
         assertEquals(listOf("api.limit"), result.items.map { it.key })
-        assertEquals(listOf("input_handling.max_length"), result.omitted)
+        assertEquals(listOf("input_handling.max_length (no evidence)"), result.omitted)
     }
 
     @Test
@@ -95,13 +95,25 @@ class ExtractTest {
     }
 
     @Test
+    fun `keeps the description when one item breaks a rule, and records the item`() {
+        val withBadKey = spec().replace(
+            "]}]}",
+            "]},{\"key\":\"api.fetch_listDataPoints\",\"section\":\"api\",\"description\":\"Fetch\"," +
+                "\"evidence\":[{\"file\":\"Search.swift\",\"line\":5}]}]}",
+        )
+        val result = extractFeature(FakeClaudeClient.answering(withBadKey), config, feature, Platform.IOS).output
+        assertEquals(listOf("api.limit"), result.items.map { it.key })
+        assertEquals(listOf("api.fetch_listDataPoints (key must be lowercase dot-separated snake_case)"), result.omitted)
+    }
+
+    @Test
     fun `refuses a description that breaks the rules`() {
-        val bad = spec().replace("api.limit", "API Limit")
+        val bad = spec().replace("\"summary\":\"Search\"", "\"summary\":\" \"")
         assertContains(
             assertFailsWith<ClaudeRunException> {
                 extractFeature(FakeClaudeClient.answering(bad), config, feature, Platform.IOS)
             }.message!!,
-            "snake_case",
+            "summary is empty",
         )
     }
 }

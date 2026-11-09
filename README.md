@@ -141,7 +141,7 @@ Every item in a description cites a file, a line and a short verbatim quote. dri
 - **Found:** a quote within three lines of the cited line, and at least 6 characters without whitespace, counts as `verified`.
 - **Otherwise** it is marked `quote_too_short`, `quote_not_found`, `line_exists`, `line_out_of_range`, `file_not_found` or `file_too_large` (over 5 MB).
 - **Paths** are resolved strictly inside the platform's folder: no absolute paths, `..` or symlinks out of it.
-- **Items without any evidence** are left out and listed in the report.
+- **Items without any evidence, or with a malformed key or empty description,** are left out and listed in the report with the reason, instead of failing the whole run.
 
 Findings may only cite evidence from the two descriptions. The report marks references that could not be confirmed with ⚠, and flags findings without any source.
 

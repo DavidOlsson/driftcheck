@@ -129,7 +129,7 @@ private fun checkedLines(run: CompareRun, android: VerifiedFeatureSpec, ios: Ver
     if (notFound.isNotEmpty()) add("<li><b>Looked for but not found:</b> ${notFound.joinToString("; ") { html(it) }}</li>")
     val omitted = android.omitted.map { "Android: $it" } + ios.omitted.map { "iOS: $it" }
     if (omitted.isNotEmpty()) {
-        add("<li class=\"warn\"><b>⚠ Left out, no evidence given:</b> ${omitted.joinToString("; ") { html(it) }}</li>")
+        add("<li class=\"warn\"><b>⚠ Left out:</b> ${omitted.joinToString("; ") { html(it) }}</li>")
     }
     // Stored results may have been edited by someone else, so even these fields are treated as untrusted
     add(
